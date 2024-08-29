@@ -1,3 +1,6 @@
+/ignore
 /csv
 /lightning_logs*
 /models
+/local*
+*.ipynb
