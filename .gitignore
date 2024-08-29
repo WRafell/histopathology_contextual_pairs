@@ -1,4 +1,5 @@
 *.ipynb
+/notebooks
 /ignore
 /csv
 /lightning_logs*
