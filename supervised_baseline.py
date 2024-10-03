@@ -12,7 +12,7 @@ NUM_WORKERS = 8
 LEARNING_RATE = 3e-4
 MAX_EPOCHS = 100
 
-torch.set_float32_matmul_precision('medium')
+torch.set_float32_matmul_precision('high')
 
 def main():
 
