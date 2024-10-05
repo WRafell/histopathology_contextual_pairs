@@ -87,23 +87,32 @@ class SSLModule(L.LightningModule):
     def __init__(
             self,
             ssl_model: torch.nn.Module,
+            positive_pairs_sampling_method: Callable,
             optimizer: torch.optim.Optimizer,
             scheduler: torch.optim.lr_scheduler,
-            positive_pairs_sampling_method: Callable):
+            saving_path: str,):
         super().__init__()
         self.ssl_model = ssl_model
+        self.positive_pairs_sampling_method = positive_pairs_sampling_method
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.positive_pairs_sampling_method = positive_pairs_sampling_method
+        self.saving_path = saving_path 
 
     def training_step(self, batch, batch_idx):
         view_1, view_2 = self.positive_pairs_sampling_method(batch)
         loss = self.ssl_model(view_1, view_2)       
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=view_1.size(0))
         return loss
+    
+    def on_train_epoch_end(self):
+        encoder = self.get_encoder()
+        torch.save(encoder.state_dict(), self.saving_path)
 
     def configure_optimizers(self):
-        return [self.optimizer], [self.scheduler]
+        return {
+            "optimizer": self.optimizer,
+            "lr_scheduler": self.scheduler,
+        }
 
     def get_encoder(self):
         return self.ssl_model.get_encoder()

@@ -23,7 +23,6 @@ class BarlowTwins(torch.nn.Module):
             layers.append(torch.nn.ReLU(inplace=True))
         layers.append(torch.nn.Linear(sizes[-2], sizes[-1], bias=False))
         self.projector = torch.nn.Sequential(*layers)
-
         # normalization for the last layer
         self.bn = torch.nn.BatchNorm1d(sizes[-1], affine=False)
 
@@ -34,9 +33,8 @@ class BarlowTwins(torch.nn.Module):
         representations_2 = self.projector(self.backbone(view_2))
 
         c = self.bn(representations_1).T @ self.bn(representations_2)
-
         c.div_(batch_size)
-
+        
         on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
         off_diag = off_diagonal(c).pow_(2).sum()
         loss = on_diag + self.lambd * off_diag
