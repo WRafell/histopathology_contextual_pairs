@@ -8,13 +8,11 @@ def off_diagonal(x):
 
 
 class BarlowTwins(torch.nn.Module):
-    def __init__(self, backbone: torch.nn.Module, projector: str, lambd: float):
+    def __init__(self, backbone: torch.nn.Module, embedding_dim: int, projector: str, lambd: float):
         super().__init__()
         self.projector = projector
         self.lambd = lambd
         self.backbone = backbone    
-        embedding_dim = self.backbone.fc.in_features
-        self.backbone.fc = torch.nn.Identity()
         sizes = [embedding_dim] + list(map(int, self.projector.split('-')))
         layers = []
         for i in range(len(sizes) - 2):

@@ -5,6 +5,7 @@ from omegaconf import OmegaConf
 from lightning.pytorch.callbacks import RichProgressBar
 import torch
 import hydra
+import torchvision
 import lightning as L
 
 torch.set_float32_matmul_precision('high')
@@ -15,8 +16,11 @@ def main(args: OmegaConf) -> None:
 
     set_manual_seed(random_seed=args.random_seed)
 
+    basename = f"{args.positive_pair_sampling}_{args.ssl_method}_{args.backbone_name}"
+    print(f"Basename: {basename}")
+    saving_path = f"models/{basename}.pth"
 
-    # LOAD DATASET
+    """ LOAD DATASET """
     print(f"\nDataset: {args.dataset}")
     if args.dataset.lower() == 'camelyon16':
         from src.utils_data import get_camelyon16
@@ -41,7 +45,7 @@ def main(args: OmegaConf) -> None:
         num_workers=args.num_workers)
 
 
-    # POSITIVE PAIR SAMPLING
+    """ POSITIVE PAIR SAMPLING """
     print(f"\nPositive pair sampling: {args.positive_pair_sampling}")
     if args.positive_pair_sampling == 'baseline':
         from src.utils_positive_pairs import two_distortion_positive_pairs
@@ -53,18 +57,23 @@ def main(args: OmegaConf) -> None:
         raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
 
 
-    # SSL MODEL
-    backbone_name = args.backbone._target_.split('.')[-1]    
-    backbone = hydra.utils.instantiate(args.backbone)
+    """ SSL MODEL """
+    print(f"\nSSL Method: {args.ssl_method} with {args.backbone_name} as backbone")     
+    if args.backbone_name.lower() == 'resnet18':
+        backbone = torchvision.models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        embedding_dim = backbone.fc.in_features
+        backbone.fc = torch.nn.Identity()
+    else:
+        raise ValueError(f"{args.backbone_name} is not a valid backbone model")
+
     optimizer = hydra.utils.instantiate(args.optimizer, params=backbone.parameters())
     scheduler = hydra.utils.instantiate(args.scheduler, optimizer=optimizer, T_max=args.max_epochs)
-    saving_path = f"models/{args.positive_pair_sampling}_{args.ssl_method}_{backbone_name}.pth"
-
-    print(f"\nSSL Method: {args.ssl_method} with {backbone_name} as backbone")     
+    
     if args.ssl_method == 'barlow_twins':
         from src.ssl_methods.barlow_twins import BarlowTwins
         ssl_model = BarlowTwins(
             backbone=backbone,
+            embedding_dim=embedding_dim,
             projector=args.barlow_twins.projector,
             lambd=args.barlow_twins.lambd)
     else:
@@ -78,7 +87,7 @@ def main(args: OmegaConf) -> None:
         saving_path=saving_path)
 
 
-    # TRAINER
+    """ TRAINING """
     print("\nTraining...")
     trainer = L.Trainer(
         max_epochs=args.max_epochs,
@@ -88,7 +97,6 @@ def main(args: OmegaConf) -> None:
         callbacks=[RichProgressBar(leave=False)],
         limit_val_batches=0)
     trainer.fit(model=ssl_module, train_dataloaders=train_loader)
-
 
     return
 
