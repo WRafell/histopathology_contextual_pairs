@@ -3,6 +3,7 @@
 /ignore
 /csv
 /lightning_logs*
+/outputs*
 /models
 /embeddings
 /logs*

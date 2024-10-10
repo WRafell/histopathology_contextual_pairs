@@ -4,6 +4,7 @@ from omegaconf import OmegaConf
 from pathlib import Path
 import torch
 import hydra
+import torchvision
 import pandas as pd
 
 
@@ -11,6 +12,8 @@ import pandas as pd
 def main(args: OmegaConf) -> None:
 
     set_manual_seed(random_seed=args.random_seed)
+
+    basename = f"{args.positive_pair_sampling}_{args.ssl_method}_{args.backbone_name}"
 
     """ LOAD DATASET """
     print(f"\nDataset: {args.dataset}")
@@ -22,17 +25,20 @@ def main(args: OmegaConf) -> None:
 
 
     """ SSL MODEL """
-    backbone_name = args.backbone._target_.split('.')[-1]
-    encoder_path = f"models/{args.positive_pair_sampling}_{args.ssl_method}_{backbone_name}.pth"
+    if args.backbone_name.lower() == 'resnet18':
+        encoder = torchvision.models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        encoder.fc = torch.nn.Identity()
+    else:
+        raise ValueError(f"{args.backbone_name} is not a valid backbone model")
+    
+    encoder_path = f"models/{basename}.pth"
     assert Path(encoder_path).exists(), f"{encoder_path} does not exist"
     state_dict = torch.load(encoder_path, weights_only=True)
-    encoder = hydra.utils.instantiate(args.backbone)
-    encoder.fc = torch.nn.Identity()     # <== CHANGE THIS
     encoder.load_state_dict(state_dict)
 
 
     """ CREATING EMBEDDINGS """
-    saving_root = f"embeddings/{args.dataset}/{args.positive_pair_sampling}_{args.ssl_method}_{backbone_name}"
+    saving_root = f"embeddings/{args.dataset}/{basename}"
     Path(saving_root).mkdir(exist_ok=True, parents=True)
     emb_data = save_embeddings(
         saving_root=saving_root,
@@ -42,7 +48,7 @@ def main(args: OmegaConf) -> None:
         device=args.device)
     
     emd_df = pd.DataFrame(emb_data, columns=['subset', 'emb_path', 'label']) 
-    emd_df.to_csv(f"csv/{args.dataset}_{args.positive_pair_sampling}_{args.ssl_method}_{backbone_name}.csv", index=False)
+    emd_df.to_csv(f"csv/{args.dataset}_{basename}.csv", index=False)
     return
 
 

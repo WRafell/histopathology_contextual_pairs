@@ -12,12 +12,11 @@ torch.set_float32_matmul_precision('high')
 def main(args: OmegaConf) -> None:
 
     set_manual_seed(random_seed=args.random_seed)
+    basename = f"{args.positive_pair_sampling}_{args.ssl_method}_{args.backbone_name}"
 
 
     """ LOAD DATA """
-    backbone_name = args.backbone._target_.split('.')[-1]
-    basename = f"{args.dataset}_{args.positive_pair_sampling}_{args.ssl_method}_{backbone_name}"
-    emb_file = f"csv/{basename}.csv"
+    emb_file = f"csv/{args.dataset}_{basename}.csv"
     df = pd.read_csv(emb_file)
     train_df = df.query("subset=='train'")
     val_df = df.query("subset=='val'")
@@ -28,7 +27,7 @@ def main(args: OmegaConf) -> None:
 
 
     """ SLIDE CLASSIFICATION """
-    embedding_dim = 512 if backbone_name == 'resnet18' else 1024
+    embedding_dim = 512 if args.backbone_name == 'resnet18' else 1024
     num_classes = 2 if args.dataset.lower() == 'camelyon16' else 3
     if args.mil.mil_method.lower() == 'abmil':
         from src.mil_methods.abmil import ABMIL
