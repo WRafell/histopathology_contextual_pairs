@@ -1,8 +1,10 @@
 from src.utils_common import set_manual_seed
-from utils_data import preselect_positive_pairs
+from src.utils_data import preselect_positive_pairs
 from omegaconf import OmegaConf
 import hydra
 import pandas as pd
+
+pd.options.mode.chained_assignment = None
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -21,7 +23,7 @@ def main(args: OmegaConf):
     
       
     """ SELECT POSITIVE PAIRS BASED ON PROXIMITY """
-    for proximity_level in [0, 1, 2, 3, 4, 5]:
+    for proximity_level in [0, 1, 2, 3, 4, 5, 10, 20]:
         print(f"Proximity level: {proximity_level}")
         train_df = df.query("subset=='train'")
         data = preselect_positive_pairs(
@@ -32,7 +34,9 @@ def main(args: OmegaConf):
             random_seed=args.random_seed,
             same_patch_ratio=0.1)
         new_df = pd.DataFrame(data=data, columns=['positive_pairs', 'slide', 'coords'])
-        new_df.to_csv(f"./csv/preselected_dataset={args.dataset.lower()}_level={proximity_level}_seed={args.random_seed}.csv")
+        new_df.to_csv(
+            f"./csv/preselected_dataset={args.dataset.lower()}_level={proximity_level}_seed={args.random_seed}.csv",
+            index=False)
         print()
 
 

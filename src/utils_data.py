@@ -39,13 +39,14 @@ def preselect_positive_pairs(
     - A list of tuples, where each tuple contains pairs of patches, slide, and coordinates.
     """
 
-    random.seed(random_seed)    
-    patch_list = train_df.img_path.tolist()  # Convert paths to list for sampling
-    used_patches = []  # Keep track of used patches to avoid re-sampling
-    data = []  # Store the selected positive pairs
-
-    for _ in tqdm(range(num_batches)): 
-        patches = random.sample(patch_list, batch_size)  
+    # Sampling random patches
+    patch_list = train_df.img_path.tolist()  
+    random.seed(random_seed)   
+    patch_list = random.sample(patch_list, int(batch_size * num_batches))
+    # Store the selected positive pairs
+    data = []  
+    for i in tqdm(range(num_batches)): 
+        patches = patch_list[i * batch_size:(i+1) * batch_size]
         patch_df = train_df.query(f"img_path in {patches}")  
         
         for row in patch_df.itertuples():  
@@ -75,10 +76,6 @@ def preselect_positive_pairs(
 
             # Add the pair and associated data to the output
             data.append([(row.img_path, selected_patch), row.slide, row.coords])
-
-        # Update the pool by removing used patches
-        used_patches.extend(patches)
-        patch_list = list(set(patch_list) - set(used_patches))  
 
     return data
 
