@@ -1,6 +1,7 @@
 from pathlib import Path
 from tqdm import tqdm
 import random
+import numpy as np
 import pandas as pd
 
 
@@ -14,6 +15,72 @@ def shuffle_train_data(train_df: pd.DataFrame, batch_size: int, num_batches: int
         subdf = subdf.sample(n=batch_size)
         new_train_df = pd.concat([new_train_df, subdf], axis=0) if new_train_df is not None else subdf
     return new_train_df
+
+
+def preselect_positive_pairs(
+        train_df: pd.DataFrame, 
+        proximity_level: int, 
+        batch_size: int, 
+        num_batches: int, 
+        random_seed: int,
+        same_patch_ratio: float) -> list:
+    """
+    Preselects positive pairs of patches based on proximity level and same_patch_ratio.
+    
+    Parameters:
+    - train_df: DataFrame containing columns 'img_path', 'slide', and 'coords'.
+    - proximity_level: Integer representing the maximum proximity level for selecting neighboring patches.
+    - batch_size: Integer for the number of patches sampled per batch.
+    - num_batches: Integer for the total number of batches to sample.
+    - random_seed: Integer seed for reproducibility.
+    - same_patch_ratio: Float between 0 and 1 that determines the probability of selecting the same patch.
+    
+    Returns:
+    - A list of tuples, where each tuple contains pairs of patches, slide, and coordinates.
+    """
+
+    random.seed(random_seed)    
+    patch_list = train_df.img_path.tolist()  # Convert paths to list for sampling
+    used_patches = []  # Keep track of used patches to avoid re-sampling
+    data = []  # Store the selected positive pairs
+
+    for _ in tqdm(range(num_batches)): 
+        patches = random.sample(patch_list, batch_size)  
+        patch_df = train_df.query(f"img_path in {patches}")  
+        
+        for row in patch_df.itertuples():  
+            # If proximity level is 0, select the patch itself
+            if proximity_level == 0:
+                selected_patch = row.img_path
+            else:
+                # Filter patches from the same slide
+                subdf = train_df.query(f"slide=='{row.slide}'")
+                # Calculate proximity (relative distance) for each patch in the slide
+                subdf['relative_coords'] = subdf['coords'].apply(
+                    lambda coords: np.abs(np.array(coords) - np.array(row.coords)))
+                subdf['proximity_level'] = np.stack(subdf.relative_coords.values).max(axis=1)
+                
+                # Select neighbors that match the desired proximity level
+                neighbors = subdf.query(f"proximity_level == {proximity_level}")
+                
+                # If no neighbors are found, select the current patch; otherwise, randomly sample one neighbor
+                if neighbors.empty:
+                    selected_patch = row.img_path
+                else:
+                    selected_patch = neighbors.sample(n=1).reset_index().img_path[0]
+                
+            # Apply same_patch_ratio: With some probability, use the same patch instead of a neighbor
+            if np.random.rand() < same_patch_ratio:
+                selected_patch = row.img_path
+
+            # Add the pair and associated data to the output
+            data.append([(row.img_path, selected_patch), row.slide, row.coords])
+
+        # Update the pool by removing used patches
+        used_patches.extend(patches)
+        patch_list = list(set(patch_list) - set(used_patches))  
+
+    return data
 
 
 def get_camelyon16(csv_file: str = "csv/camelyon16_data.csv", patch_size: int = 256) -> list:
@@ -33,15 +100,15 @@ def get_camelyon16(csv_file: str = "csv/camelyon16_data.csv", patch_size: int = 
               - coords (tuple): The (x, y) coordinates of the patch in the slide, adjusted by `patch_size`.
     """
 
-    def extract_coords(img_path: list, patch_size: int):
+    def extract_coords(img_path: list):
         x, y = list(map(int, Path(img_path).stem.split('_')))
-        return x//patch_size, y//patch_size
+        return x//512, y//512
 
     # Read the CSV file into a pandas DataFrame
     df = pd.read_csv(csv_file)
 
     # Apply the coordinate extraction function to each image path and store in a new 'coords' column
-    df['coords'] = df['img_path'].apply(lambda img_path: extract_coords(img_path, patch_size))
+    df['coords'] = df['img_path'].apply(lambda img_path: extract_coords(img_path))
 
     return df
 

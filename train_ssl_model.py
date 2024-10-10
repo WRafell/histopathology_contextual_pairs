@@ -24,7 +24,7 @@ def main(args: OmegaConf) -> None:
     print(f"\nDataset: {args.dataset}")
     if args.dataset.lower() == 'camelyon16':
         from src.utils_data import get_camelyon16
-        df = get_camelyon16(patch_size=args.patch_size)
+        df = get_camelyon16()
     else:
         raise ValueError(f"{args.dataset} is not a valid dataset")
         
