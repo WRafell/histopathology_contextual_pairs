@@ -5,7 +5,11 @@ import numpy as np
 import pandas as pd
 
 
-def shuffle_train_data(train_df: pd.DataFrame, batch_size: int, num_batches: int, num_slides_per_batch: int) -> pd.DataFrame:
+def shuffle_train_data(
+        train_df: pd.DataFrame, 
+        batch_size: int, 
+        num_batches: int, 
+        num_slides_per_batch: int) -> pd.DataFrame:
     print("Manually shuffling training data")
     slides = train_df.slide.unique().tolist()
     new_train_df = None
@@ -18,66 +22,67 @@ def shuffle_train_data(train_df: pd.DataFrame, batch_size: int, num_batches: int
 
 
 def preselect_positive_pairs(
-        train_df: pd.DataFrame, 
-        proximity_level: int, 
-        batch_size: int, 
-        num_batches: int, 
-        random_seed: int,
-        same_patch_ratio: float) -> list:
+        all_train_df: pd.DataFrame, 
+        num_patches: int,
+        proximity_levels: list, 
+        same_patch_ratio: float) -> pd.DataFrame:
+    
     """
-    Preselects positive pairs of patches based on proximity level and same_patch_ratio.
-    
+    Preselect positive pairs of patches for a given set of proximity levels.
+
     Parameters:
-    - train_df: DataFrame containing columns 'img_path', 'slide', and 'coords'.
-    - proximity_level: Integer representing the maximum proximity level for selecting neighboring patches.
-    - batch_size: Integer for the number of patches sampled per batch.
-    - num_batches: Integer for the total number of batches to sample.
-    - random_seed: Integer seed for reproducibility.
-    - same_patch_ratio: Float between 0 and 1 that determines the probability of selecting the same patch.
-    
+    - all_train_df: DataFrame containing all available patches, which will be used for proximity selection.
+    - num_patches: Number of patches to sample from all_train_df
+    - proximity_levels: List of proximity levels to consider for selecting neighbors.
+    - same_patch_ratio: Float between 0 and 1, determining the probability of selecting the same patch.
+
     Returns:
-    - A list of tuples, where each tuple contains pairs of patches, slide, and coordinates.
+    - A DataFrame with columns for the pivot patch and its neighbors at each proximity level.
     """
 
-    # Sampling random patches
-    patch_list = train_df.img_path.tolist()  
-    random.seed(random_seed)   
-    patch_list = random.sample(patch_list, int(batch_size * num_batches))
-    # Store the selected positive pairs
-    data = []  
-    for i in tqdm(range(num_batches)): 
-        patches = patch_list[i * batch_size:(i+1) * batch_size]
-        patch_df = train_df.query(f"img_path in {patches}")  
-        
-        for row in patch_df.itertuples():  
+    data = []  # List to store the selected positive pairs
+
+    patch_list = all_train_df.img_path.tolist()  
+    patch_list = random.sample(patch_list, num_patches)
+    sampled_df = all_train_df.query(f"img_path in {patch_list}")  
+
+    # Define new columns for the resulting DataFrame
+    new_df_columns = ['slide', 'coords', 'pivot_patch']
+    new_df_columns.extend([f"neighbor_level_{i}" for i in proximity_levels])
+
+    for row in tqdm(sampled_df.itertuples(), total=sampled_df.shape[0], desc="Selecting neighbors"):
+        new_row = [row.slide, row.coords, row.img_path]
+
+        for proximity_level in proximity_levels:
             # If proximity level is 0, select the patch itself
             if proximity_level == 0:
                 selected_patch = row.img_path
             else:
                 # Filter patches from the same slide
-                subdf = train_df.query(f"slide=='{row.slide}'")
+                subdf = all_train_df.query(f"slide=='{row.slide}'")
                 # Calculate proximity (relative distance) for each patch in the slide
                 subdf['relative_coords'] = subdf['coords'].apply(
                     lambda coords: np.abs(np.array(coords) - np.array(row.coords)))
                 subdf['proximity_level'] = np.stack(subdf.relative_coords.values).max(axis=1)
-                
+
                 # Select neighbors that match the desired proximity level
                 neighbors = subdf.query(f"proximity_level == {proximity_level}")
-                
+
                 # If no neighbors are found, select the current patch; otherwise, randomly sample one neighbor
                 if neighbors.empty:
                     selected_patch = row.img_path
                 else:
                     selected_patch = neighbors.sample(n=1).reset_index().img_path[0]
-                
+
             # Apply same_patch_ratio: With some probability, use the same patch instead of a neighbor
             if np.random.rand() < same_patch_ratio:
                 selected_patch = row.img_path
 
-            # Add the pair and associated data to the output
-            data.append([(row.img_path, selected_patch), row.slide, row.coords])
+            new_row.append(selected_patch)
 
-    return data
+        data.append(new_row)
+
+    return pd.DataFrame(data, columns=new_df_columns)
 
 
 def get_camelyon16(csv_file: str = "csv/camelyon16_data.csv", patch_size: int = 256) -> list:
@@ -108,4 +113,23 @@ def get_camelyon16(csv_file: str = "csv/camelyon16_data.csv", patch_size: int = 
     df['coords'] = df['img_path'].apply(lambda img_path: extract_coords(img_path))
 
     return df
+
+
+def load_dataset(dataset: str) -> pd.DataFrame:
+    if dataset == 'camelyon16':
+        return get_camelyon16()
+    else:
+        raise ValueError(f"{dataset} is not a valid dataset")
+    
+
+def load_preselected_samples(csv_dir: str) -> pd.DataFrame:
+    assert Path(csv_dir).exists(), f"{csv_dir} does not exist"
+    return pd.read_csv(csv_dir)
+
+
+
+
+
+
+
 

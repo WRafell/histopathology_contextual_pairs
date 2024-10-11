@@ -1,6 +1,5 @@
 from src.utils_common import set_manual_seed
-from src.utils_data import shuffle_train_data
-from src.utils_self_supervised import Transforms, TwoViewsDataset, SSLModule
+from src.utils_self_supervised import Transforms, SSLModule
 from omegaconf import OmegaConf
 from lightning.pytorch.callbacks import RichProgressBar
 import torch
@@ -16,28 +15,43 @@ def main(args: OmegaConf) -> None:
 
     set_manual_seed(random_seed=args.random_seed)
 
-    basename = f"{args.positive_pair_sampling}_{args.ssl_method}_{args.backbone_name}"
+    basename = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
     print(f"Basename: {basename}")
     saving_path = f"models/{basename}.pth"
 
-    """ LOAD DATASET """
-    print(f"\nDataset: {args.dataset}")
-    if args.dataset.lower() == 'camelyon16':
-        from src.utils_data import get_camelyon16
-        df = get_camelyon16()
-    else:
-        raise ValueError(f"{args.dataset} is not a valid dataset")
-        
-    train_df = df.query("subset=='train'")
-    shuffled_train_df = shuffle_train_data(
-        train_df=train_df,
-        batch_size=args.batch_size,
-        num_batches=args.num_batches,
-        num_slides_per_batch=args.num_slides_per_batch)
-    data = shuffled_train_df[['img_path', 'slide', 'coords']].values.tolist()
 
-    transforms = Transforms(resize_int=args.patch_resize).two_views_transform
-    dataset = TwoViewsDataset(data=data, transforms=transforms)
+
+    """ LOAD DATASET """
+    dataset_name = args.dataset.lower()
+    assert dataset_name in ['camelyon16'], f"{dataset_name} is not a valid dataset"
+    print(f"\nDataset: {dataset_name}")
+
+    preselected_samples: bool = args.positive_pair_sampling == 'preselected_positive_pairs'
+    if preselected_samples:
+        from src.utils_data import load_preselected_samples
+        from src.utils_self_supervised import PreselectedPairsDataset
+        num_patches = int(args.batch_size * args.num_batches)
+        preselected_csv_dir = f".csv/preselected_dataset={dataset_name}_num-patches={num_patches}_seed={args.random_seed}.csv"
+        print(f"Preselected samples from: {preselected_csv_dir}")
+        train_df = load_preselected_samples(preselected_csv_dir)
+        data = train_df[['pivot_path', f'neighbor_level_{args.proximity_level}']].values.tolist()
+        transforms_pivot = Transforms(resize_int=args.patch_resize).train_transforms
+        transforms_neighbor = Transforms(resize_int=args.patch_resize).train_transforms_prime
+        dataset = PreselectedPairsDataset(data=data, transforms_pivot=transforms_pivot, transforms_neighbor=transforms_neighbor)
+    else:
+        from src.utils_data import load_dataset, shuffle_train_data
+        from src.utils_self_supervised import TwoViewsDataset
+        df = load_dataset(dataset_name)        
+        train_df = df.query("subset=='train'")
+        shuffled_train_df = shuffle_train_data(
+            train_df=train_df,
+            batch_size=args.batch_size,
+            num_batches=args.num_batches,
+            num_slides_per_batch=args.num_slides_per_batch)
+        data = shuffled_train_df[['img_path', 'slide', 'coords']].values.tolist()
+        transforms = Transforms(resize_int=args.patch_resize).two_views_transform
+        dataset = TwoViewsDataset(data=data, transforms=transforms)
+
     train_loader = torch.utils.data.DataLoader(
         dataset=dataset, 
         batch_size=args.batch_size, 
@@ -53,6 +67,8 @@ def main(args: OmegaConf) -> None:
     elif args.positive_pair_sampling == 'closest_patch':
         from src.utils_positive_pairs import closest_patch_positive_pairs
         positive_pairs_sampling_method = closest_patch_positive_pairs
+    elif args.positive_pair_sampling == 'reselected_positive_pairs':
+        positive_pairs_sampling_method = two_distortion_positive_pairs
     else:
         raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
 

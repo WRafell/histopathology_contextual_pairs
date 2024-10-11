@@ -3,6 +3,7 @@ device: cuda:0
 
 # data related
 dataset: camelyon16
+shuffle_train: True
 patch_size: 256
 patch_resize: 128
 batch_size: 256
@@ -11,7 +12,8 @@ num_batches: 1000
 num_slides_per_batch: 16
 
 # pair sampling
-positive_pair_sampling: closest_patch
+positive_pair_sampling: preselected_positive_pairs
+proximity_level: 0
 
 # model related
 backbone_name: resnet18

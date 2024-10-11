@@ -1,12 +1,12 @@
 import torch
 
 
-def two_distortion_positive_pairs(batch: list):
-    views = batch[0]
-    return views[0], views[1]
+def two_distortion_positive_pairs(batch: list) -> tuple:
+    views_1, views_2 = batch[0]
+    return views_1, views_2
 
 
-def shuffle_positive_pairs(batch: list):
+def shuffle_positive_pairs(batch: list) -> tuple:
     views_1, views_2 = batch[0]
     if torch.rand(1).item() > 0.5:
         shuffle_indeces = torch.randperm(views_2.size(0))
@@ -14,7 +14,35 @@ def shuffle_positive_pairs(batch: list):
     return views_1, views_2
 
 
-def closest_patch_positive_pairs(batch: list):
+def closest_patch_positive_pairs(batch: list) -> tuple:
+    """
+    Finds the closest positive patch pairs within the same slide for a batch of image patches.
+
+    This function takes a batch of image patches and their associated metadata, and for each patch,
+    it finds the closest neighboring patch from the same slide. If a patch has no neighbors from
+    the same slide, it is paired with itself.
+
+    Parameters:
+    -----------
+    batch : list
+        A list containing the following elements:
+        - batch[0]: Tuple of (views_1, views_2), where each is a tensor of image patch views
+        - batch[2]: List of slide names for each patch
+        - batch[3]: Tuple of (rows, cols), coordinates for each patch
+
+    Returns:
+    --------
+    tuple
+        A tuple containing two tensors:
+        - views_1: The original set of image patch views
+        - views_2: The set of closest neighbor views for each patch in views_1
+
+    Notes:
+    ------
+    - The function uses Euclidean distance to determine the closest patches.
+    - Patches from different slides are not considered as potential neighbors.
+    - If a patch has no neighbors from the same slide, it is paired with itself.
+    """
     # batch: ['views', 'img_path', 'slide_name', 'coord']
     views_1, views_2 = batch[0]
     slide_names = batch[2]

@@ -83,6 +83,29 @@ class TwoViewsDataset(torch.utils.data.Dataset):
         return (y1, y2), img_path, slide_name, coord
     
 
+class PreselectedPairsDataset(torch.utils.data.Dataset):
+    def __init__(self, data, transforms_pivot, transforms_neighbor):
+        super().__init__()
+        self.pivot_paths = [x[0] for x in data]
+        self.neighbor_paths = [x[1] for x in data]
+        self.transforms_pivot = transforms_pivot
+        self.transforms_neighbor = transforms_neighbor
+    
+    def __len__(self):
+        return len(self.pivot_paths)
+    
+    def __getitem__(self, idx):
+        pivot_path = self.pivot_paths[idx]
+        neighbor_path = self.neighbor_paths[idx]
+        with open(pivot_path, 'rb') as f:
+            pivot = Image.open(f).convert('RGB')
+        with open(neighbor_path, 'rb') as f:
+            neighbor = Image.open(f).convert('RGB')
+        view_1 = self.transforms_pivot(pivot)
+        view_2 = self.transforms_neighbor(neighbor)
+        return (view_1, view_2)
+        
+
 class SSLModule(L.LightningModule):
     def __init__(
             self,
