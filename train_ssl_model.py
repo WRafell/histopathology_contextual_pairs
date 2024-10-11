@@ -23,7 +23,7 @@ def main(args: OmegaConf) -> None:
 
     """ LOAD DATASET """
     dataset_name = args.dataset.lower()
-    assert dataset_name in ['camelyon16'], f"{dataset_name} is not a valid dataset."
+    assert dataset_name in ['camelyon16'], f"{dataset_name} is not a valid dataset"
     print(f"\nDataset: {dataset_name}")
 
     preselected_samples: bool = args.positive_pair_sampling == 'preselected_positive_pairs'
@@ -67,7 +67,7 @@ def main(args: OmegaConf) -> None:
     elif args.positive_pair_sampling == 'closest_patch':
         from src.utils_positive_pairs import closest_patch_positive_pairs
         positive_pairs_sampling_method = closest_patch_positive_pairs
-    elif args.positive_pair_sampling == 'reselected_positive_pairs':
+    elif args.positive_pair_sampling == 'preselected_positive_pairs':
         positive_pairs_sampling_method = two_distortion_positive_pairs
     else:
         raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
