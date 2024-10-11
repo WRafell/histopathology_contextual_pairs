@@ -61,14 +61,12 @@ def main(args: OmegaConf) -> None:
 
     """ POSITIVE PAIR SAMPLING """
     print(f"\nPositive pair sampling: {args.positive_pair_sampling}")
-    if args.positive_pair_sampling == 'baseline':
+    if args.positive_pair_sampling in ['baseline', 'preselected_positive_pairs']:
         from src.utils_positive_pairs import two_distortion_positive_pairs
         positive_pairs_sampling_method = two_distortion_positive_pairs
     elif args.positive_pair_sampling == 'closest_patch':
         from src.utils_positive_pairs import closest_patch_positive_pairs
         positive_pairs_sampling_method = closest_patch_positive_pairs
-    elif args.positive_pair_sampling == 'preselected_positive_pairs':
-        positive_pairs_sampling_method = two_distortion_positive_pairs
     else:
         raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
 
