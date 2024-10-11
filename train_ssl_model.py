@@ -31,10 +31,10 @@ def main(args: OmegaConf) -> None:
         from src.utils_data import load_preselected_samples
         from src.utils_self_supervised import PreselectedPairsDataset
         num_patches = int(args.batch_size * args.num_batches)
-        preselected_csv_dir = f".csv/preselected_dataset={dataset_name}_num-patches={num_patches}_seed={args.random_seed}.csv"
-        print(f"Preselected samples from: {preselected_csv_dir}")
+        preselected_csv_dir = f"./csv/preselected_dataset={dataset_name}_num-patches={num_patches}_seed={args.random_seed}.csv"
+        print(f"Preselected samples from: {preselected_csv_dir} with Proximity level: {args.proximity_level}")
         train_df = load_preselected_samples(preselected_csv_dir)
-        data = train_df[['pivot_path', f'neighbor_level_{args.proximity_level}']].values.tolist()
+        data = train_df[['pivot_patch', f'neighbor_level_{args.proximity_level}']].values.tolist()
         transforms_pivot = Transforms(resize_int=args.patch_resize).train_transforms
         transforms_neighbor = Transforms(resize_int=args.patch_resize).train_transforms_prime
         dataset = PreselectedPairsDataset(data=data, transforms_pivot=transforms_pivot, transforms_neighbor=transforms_neighbor)

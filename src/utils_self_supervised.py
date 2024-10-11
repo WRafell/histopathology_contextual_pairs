@@ -98,11 +98,11 @@ class PreselectedPairsDataset(torch.utils.data.Dataset):
         pivot_path = self.pivot_paths[idx]
         neighbor_path = self.neighbor_paths[idx]
         with open(pivot_path, 'rb') as f:
-            pivot = Image.open(f).convert('RGB')
+            pivot_patch = Image.open(f).convert('RGB')
         with open(neighbor_path, 'rb') as f:
-            neighbor = Image.open(f).convert('RGB')
-        view_1 = self.transforms_pivot(pivot)
-        view_2 = self.transforms_neighbor(neighbor)
+            neighbor_patch = Image.open(f).convert('RGB')
+        view_1 = self.transforms_pivot(pivot_patch)
+        view_2 = self.transforms_neighbor(neighbor_patch)
         return (view_1, view_2)
         
 
