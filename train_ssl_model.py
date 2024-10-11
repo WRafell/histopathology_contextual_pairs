@@ -23,7 +23,7 @@ def main(args: OmegaConf) -> None:
 
     """ LOAD DATASET """
     dataset_name = args.dataset.lower()
-    assert dataset_name in ['camelyon16'], f"{dataset_name} is not a valid dataset"
+    assert dataset_name in ['camelyon16'], f"{dataset_name} is not a valid dataset."
     print(f"\nDataset: {dataset_name}")
 
     preselected_samples: bool = args.positive_pair_sampling == 'preselected_positive_pairs'
