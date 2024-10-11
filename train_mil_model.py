@@ -12,7 +12,7 @@ torch.set_float32_matmul_precision('high')
 def main(args: OmegaConf) -> None:
 
     set_manual_seed(random_seed=args.random_seed)
-    basename = f"{args.positive_pair_sampling}_{args.ssl_method}_{args.backbone_name}"
+    basename = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
 
 
     """ LOAD DATA """

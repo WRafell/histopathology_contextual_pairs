@@ -103,7 +103,7 @@ class PreselectedPairsDataset(torch.utils.data.Dataset):
             neighbor_patch = Image.open(f).convert('RGB')
         view_1 = self.transforms_pivot(pivot_patch)
         view_2 = self.transforms_neighbor(neighbor_patch)
-        return (view_1, view_2)
+        return (view_1, view_2), (pivot_path, neighbor_path)
         
 
 class SSLModule(L.LightningModule):

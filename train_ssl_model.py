@@ -52,6 +52,10 @@ def main(args: OmegaConf) -> None:
         transforms = Transforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
 
+    print("Some samples from the dataset:")
+    for i in range(5):
+        print(data[i])
+
     train_loader = torch.utils.data.DataLoader(
         dataset=dataset, 
         batch_size=args.batch_size, 
