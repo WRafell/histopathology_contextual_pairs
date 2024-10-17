@@ -1,4 +1,5 @@
-from src.utils_common import set_manual_seed
+from src.utils_common import set_manual_seed, get_basename
+from src.utils_data import load_dataset
 from src.utils_embeddings import save_embeddings
 from omegaconf import OmegaConf
 from pathlib import Path
@@ -12,17 +13,12 @@ import pandas as pd
 def main(args: OmegaConf) -> None:
 
     set_manual_seed(random_seed=args.random_seed)
-
-    basename = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+    basename = get_basename(args=args)
+    print(f"Basename: {basename}")
 
     """ LOAD DATASET """
     print(f"\nDataset: {args.dataset}")
-    if args.dataset.lower() == 'camelyon16':
-        from src.utils_data import get_camelyon16
-        df = get_camelyon16()
-    else:
-        raise ValueError(f"{args.dataset} is not a valid dataset")
-
+    df: pd.DataFrame = load_dataset(args.dataset.lower())
 
     """ SSL MODEL """
     if args.backbone_name.lower() == 'resnet18':
@@ -32,6 +28,7 @@ def main(args: OmegaConf) -> None:
         raise ValueError(f"{args.backbone_name} is not a valid backbone model")
     
     encoder_path = f"models/{basename}.pth"
+    print(f"Encoder path: {encoder_path}")
     assert Path(encoder_path).exists(), f"{encoder_path} does not exist"
     state_dict = torch.load(encoder_path, weights_only=True)
     encoder.load_state_dict(state_dict)

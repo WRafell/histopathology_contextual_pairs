@@ -1,4 +1,4 @@
-from src.utils_common import set_manual_seed
+from src.utils_common import set_manual_seed, get_basename
 from src.utils_self_supervised import Transforms, SSLModule
 from omegaconf import OmegaConf
 from lightning.pytorch.callbacks import RichProgressBar
@@ -15,10 +15,9 @@ def main(args: OmegaConf) -> None:
 
     set_manual_seed(random_seed=args.random_seed)
 
-    basename = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+    basename = get_basename(args=args)
     print(f"Basename: {basename}")
     saving_path = f"models/{basename}.pth"
-
 
 
     """ LOAD DATASET """

@@ -13,7 +13,7 @@ num_slides_per_batch: 16
 
 # pair sampling
 positive_pair_sampling: preselected_positive_pairs
-proximity_level: 0
+proximity_level: 3
 
 # model related
 backbone_name: resnet18
