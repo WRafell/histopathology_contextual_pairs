@@ -29,7 +29,8 @@ def main(args: OmegaConf):
     print(f"Proximity levels: {proximity_levels}")
 
     train_df = df.query("subset=='train'")
-    num_patches = int(args.batch_size * args.num_batches)
+    # num_patches = int(args.batch_size * args.num_batches)
+    num_patches = args.num_preselected_patches
     new_train_df = preselect_positive_pairs(
         all_train_df=train_df,
         num_patches=num_patches,

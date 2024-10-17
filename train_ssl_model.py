@@ -29,7 +29,8 @@ def main(args: OmegaConf) -> None:
     if preselected_samples:
         from src.utils_data import load_preselected_samples
         from src.utils_self_supervised import PreselectedPairsDataset
-        num_patches = int(args.batch_size * args.num_batches)
+        # num_patches = int(args.batch_size * args.num_batches)
+        num_patches = args.num_preselected_patches
         preselected_csv_dir = f"./csv/preselected_dataset={dataset_name}_num-patches={num_patches}_seed={args.random_seed}.csv"
         print(f"Preselected samples from: {preselected_csv_dir} with Proximity level: {args.proximity_level}")
         train_df = load_preselected_samples(preselected_csv_dir)
