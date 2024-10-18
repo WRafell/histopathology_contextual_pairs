@@ -16,9 +16,11 @@ def main(args: OmegaConf) -> None:
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
 
+
     """ LOAD DATASET """
     print(f"\nDataset: {args.dataset}")
     df: pd.DataFrame = load_dataset(args.dataset.lower())
+
 
     """ SSL MODEL """
     if args.backbone_name.lower() == 'resnet18':
