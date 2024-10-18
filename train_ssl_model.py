@@ -60,7 +60,8 @@ def main(args: OmegaConf) -> None:
         dataset=dataset, 
         batch_size=args.batch_size, 
         shuffle=False, 
-        num_workers=args.num_workers)
+        num_workers=args.num_workers,
+        pin_memory=True)
 
 
     """ POSITIVE PAIR SAMPLING """
