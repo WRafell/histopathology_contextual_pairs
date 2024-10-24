@@ -114,8 +114,8 @@ def main(args: OmegaConf) -> None:
     trainer = L.Trainer(
         max_epochs=args.max_epochs,
         precision="bf16-mixed",
-        accelerator="gpu",
-        devices=[0],
+        accelerator=args.accelerator,
+        devices=args.devices,
         callbacks=[RichProgressBar(leave=False)],
         limit_val_batches=0)
     trainer.fit(model=ssl_module, train_dataloaders=train_loader)

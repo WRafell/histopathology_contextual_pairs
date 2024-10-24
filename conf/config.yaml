@@ -14,7 +14,7 @@ num_slides_per_batch: 16
 
 # Pair sampling
 positive_pair_sampling: preselected_positive_pairs
-proximity_level: 5
+proximity_level: 0
 
 
 # Preselected Pairs
@@ -30,6 +30,8 @@ optimizer:
 scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
 ssl_method: barlow_twins
+accelerator: gpu
+devices: [0,1]
 max_epochs: 100
 
 
