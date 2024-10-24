@@ -1,4 +1,6 @@
 *.ipynb
+*.log
+/.hydra*
 /notebooks
 /ignore
 /csv
