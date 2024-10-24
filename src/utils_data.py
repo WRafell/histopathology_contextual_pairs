@@ -70,7 +70,7 @@ def preselect_positive_pairs(
 
                 # If no neighbors are found, select the current patch; otherwise, randomly sample one neighbor
                 if neighbors.empty:
-                    selected_patch = row.img_path
+                    selected_patch = row.img_path 
                 else:
                     selected_patch = neighbors.sample(n=1).reset_index().img_path[0]
 

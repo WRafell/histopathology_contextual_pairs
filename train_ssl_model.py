@@ -2,6 +2,7 @@ from src.utils_common import set_manual_seed, get_basename
 from src.utils_self_supervised import Transforms, SSLModule
 from omegaconf import OmegaConf
 from lightning.pytorch.callbacks import RichProgressBar
+import time
 import torch
 import hydra
 import torchvision
@@ -85,10 +86,10 @@ def main(args: OmegaConf) -> None:
     else:
         raise ValueError(f"{args.backbone_name} is not a valid backbone model")
 
-    optimizer = hydra.utils.instantiate(args.optimizer, params=backbone.parameters())
-    scheduler = hydra.utils.instantiate(args.scheduler, optimizer=optimizer, T_max=args.max_epochs)
+    optimizer: torch.optim = hydra.utils.instantiate(args.optimizer, params=backbone.parameters())
+    scheduler: torch.optim.lr_scheduler = hydra.utils.instantiate(args.scheduler, optimizer=optimizer, T_max=args.max_epochs)
     
-    if args.ssl_method == 'barlow_twins':
+    if args.ssl_method.lower() == 'barlow_twins':
         from src.ssl_methods.barlow_twins import BarlowTwins
         ssl_model = BarlowTwins(
             backbone=backbone,
@@ -107,6 +108,8 @@ def main(args: OmegaConf) -> None:
 
 
     """ TRAINING """
+    start_time = time.perf_counter()
+
     print("\nTraining...")
     trainer = L.Trainer(
         max_epochs=args.max_epochs,
@@ -116,6 +119,12 @@ def main(args: OmegaConf) -> None:
         callbacks=[RichProgressBar(leave=False)],
         limit_val_batches=0)
     trainer.fit(model=ssl_module, train_dataloaders=train_loader)
+
+    elapsed_time = time.perf_counter() - start_time
+    hours, remainder = divmod(elapsed_time, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    print(f"SSL training took {int(hours)}h:{int(minutes)}m:{seconds:.2f}s.\n")
 
     return
 

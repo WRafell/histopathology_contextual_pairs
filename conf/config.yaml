@@ -6,7 +6,7 @@ device: cuda:0
 dataset: camelyon16
 shuffle_train: True
 patch_resize: 64
-batch_size: 256
+batch_size: 512
 num_workers: 16
 num_batches: 1000
 num_slides_per_batch: 16
@@ -14,7 +14,7 @@ num_slides_per_batch: 16
 
 # Pair sampling
 positive_pair_sampling: preselected_positive_pairs
-proximity_level: 1
+proximity_level: 5
 
 
 # Preselected Pairs
