@@ -2,18 +2,30 @@ from src.utils_common import set_manual_seed, get_basename
 from omegaconf import OmegaConf
 import torch
 import hydra
+import numpy as np
 import pandas as pd
 
 
 torch.set_float32_matmul_precision('high')
 
+# To avoid NoneType error due to hydra
+TEST_ACC, TEST_AUC = [], []
+BASENAME = None
+PROXIMITY_LEVEL = None
+
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(args: OmegaConf) -> None:
+def main(args: OmegaConf):
 
-    set_manual_seed(random_seed=args.random_seed)
+    global TEST_ACC
+    global TEST_AUC
+    global BASENAME
+    global PROXIMITY_LEVEL
+    
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
+    BASENAME = basename
+    PROXIMITY_LEVEL = args.proximity_level
 
 
     """ LOAD DATA """
@@ -44,11 +56,38 @@ def main(args: OmegaConf) -> None:
     best_model = trainer.train(train_data, val_data)
     test_loss, test_acc, test_auc = trainer.test(best_model, test_data)  
     print(f"Results from: {basename} bags. MIL model: {args.mil.mil_method.lower()}")  
-    print(f"Test loss: {test_loss:.4f}. Test acc: {test_acc:.4f}. AUROC: {test_auc:.4f}")      
+    print(f"Test loss: {test_loss:.4f}. Test acc: {test_acc:.4f}. AUROC: {test_auc:.4f}")  
 
+    TEST_ACC.append(test_acc)   
+    TEST_AUC.append(test_auc) 
 
-    return
+    return 
 
 
 if __name__=='__main__':
-    main()
+    
+    num_runs = 5
+    for i in range(num_runs):
+        print(f"Run: {i+1}/{num_runs}")
+        set_manual_seed(random_seed=i)
+        main()
+        print()
+
+    test_acc_mean = np.mean(TEST_ACC)
+    test_acc_std = np.std(TEST_ACC)
+    test_auc_mean = np.mean(TEST_AUC)
+    test_auc_std = np.std(TEST_AUC)
+    
+    print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
+          f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.")   
+    
+    with open("logs/proximity_levels.txt", 'a') as logger:
+        print(f"Level: {PROXIMITY_LEVEL}", file=logger)
+        print(f"{BASENAME}", file=logger)
+        print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
+          f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.", 
+          file=logger)   
+        print("-" * 100, file=logger)
+        print('\n', file=logger)
+
+

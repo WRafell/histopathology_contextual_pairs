@@ -124,7 +124,7 @@ class SSLModule(L.LightningModule):
     def training_step(self, batch, batch_idx):
         view_1, view_2 = self.positive_pairs_sampling_method(batch)
         loss = self.ssl_model(view_1, view_2)       
-        self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=view_1.size(0))
+        self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=view_1.size(0), sync_dist=True)
         return loss
     
     def on_train_epoch_end(self):

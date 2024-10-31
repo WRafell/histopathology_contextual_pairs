@@ -2,6 +2,7 @@ from src.utils_common import set_manual_seed, get_basename
 from src.utils_self_supervised import Transforms, SSLModule
 from omegaconf import OmegaConf
 from lightning.pytorch.callbacks import RichProgressBar
+from pathlib import Path
 import time
 import torch
 import hydra
@@ -19,6 +20,7 @@ def main(args: OmegaConf) -> None:
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
     saving_path = f"models/{basename}.pth"
+    Path(saving_path).parent.mkdir(exist_ok=True, parents=True)
 
 
     """ LOAD DATASET """
@@ -63,6 +65,8 @@ def main(args: OmegaConf) -> None:
         shuffle=False, 
         num_workers=args.num_workers,
         pin_memory=True)
+    _ = next(iter(train_loader))
+    print("Data loaded")
 
 
     """ POSITIVE PAIR SAMPLING """

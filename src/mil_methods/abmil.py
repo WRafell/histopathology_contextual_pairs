@@ -16,21 +16,6 @@ class Attention(nn.Module):
         self.L = 128
         self.ATTENTION_BRANCHES = 1
 
-        # FEATURES ARE ALREADY EXTRACTED
-        # self.feature_extractor_part1 = nn.Sequential(
-        #     nn.Conv2d(1, 20, kernel_size=5),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(2, stride=2),
-        #     nn.Conv2d(20, 50, kernel_size=5),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(2, stride=2)
-        # )
-
-        # self.feature_extractor_part2 = nn.Sequential(
-        #     nn.Linear(50 * 4 * 4, self.M),
-        #     nn.ReLU(),
-        # )
-
         self.attention = nn.Sequential(
             nn.ReLU(),
             nn.Linear(self.M, self.L), # matrix V
