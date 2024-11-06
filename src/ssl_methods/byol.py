@@ -14,6 +14,16 @@ class MLPHead(torch.nn.Module):
 
     def forward(self, x):
         return self.net(x)
+    
+
+class NetworkWrapper(torch.nn.Module):
+    def __init__(self, backbone: torch.nn.Module, embedding_dim: int, mlp_hidden_size: int, projector_dim: int):
+        super().__init__()
+        self.encoder = deepcopy(backbone)
+        self.projection = MLPHead(embedding_dim, mlp_hidden_size, projector_dim)
+
+    def forward(self, x):
+        return self.projection(self.encoder(x))
 
 
 class BYOL(torch.nn.Module):
@@ -24,10 +34,10 @@ class BYOL(torch.nn.Module):
             projector_dim: int,
             momentum: int):
         super().__init__()
-        self.online_network = deepcopy(backbone)
-        self.target_network = deepcopy(backbone)
+        self.online_network = NetworkWrapper(backbone, embedding_dim, mlp_hidden_size, projector_dim)
+        self.target_network = NetworkWrapper(backbone, embedding_dim, mlp_hidden_size, projector_dim)
         self.predictor = MLPHead(
-            in_channels=embedding_dim, 
+            in_channels=projector_dim, 
             mlp_hidden_size=mlp_hidden_size, 
             projector_dim=projector_dim)
         self.momentum = momentum
@@ -63,7 +73,7 @@ class BYOL(torch.nn.Module):
         return loss.mean()
     
     def get_encoder(self):
-        return deepcopy(self.online_network)
+        return deepcopy(self.online_network.encoder)
 
     
 
