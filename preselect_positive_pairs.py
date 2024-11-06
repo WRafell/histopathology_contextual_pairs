@@ -25,7 +25,7 @@ def main(args: OmegaConf):
       
     """ SELECT POSITIVE PAIRS BASED ON PROXIMITY """
     # Selecting N patches, where N = batch_size * num_batches
-    proximity_levels = [0, 1, 2, 3, 4, 5, 10, 20]
+    proximity_levels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30]
     print(f"Proximity levels: {proximity_levels}")
 
     train_df = df.query("subset=='train'")

@@ -100,15 +100,26 @@ def main(args: OmegaConf) -> None:
             embedding_dim=embedding_dim,
             projector=args.barlow_twins.projector,
             lambd=args.barlow_twins.lambd)
+    elif args.ssl_method.lower() == 'byol':
+        from src.ssl_methods.byol import BYOL
+        ssl_model = BYOL(
+            backbone=backbone,
+            embedding_dim=embedding_dim,
+            mlp_hidden_size=args.byol.mlp_hidden_size,
+            projector_dim=args.byol.projector_dim,
+            momentum=args.byol.momentum)
     else:
-        raise ValueError(f"{args.ssl_method} is not a valid ssl method")    
+        raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
+
+    use_moving_average: bool = args.ssl_method.lower() in ['byol']  
 
     ssl_module = SSLModule(
         ssl_model=ssl_model,
         positive_pairs_sampling_method=positive_pairs_sampling_method,
         optimizer=optimizer,
         scheduler=scheduler,
-        saving_path=saving_path)
+        saving_path=saving_path,
+        use_moving_average=use_moving_average)
 
 
     """ TRAINING """

@@ -113,13 +113,15 @@ class SSLModule(L.LightningModule):
             positive_pairs_sampling_method: Callable,
             optimizer: torch.optim.Optimizer,
             scheduler: torch.optim.lr_scheduler,
-            saving_path: str,):
+            saving_path: str,
+            use_moving_average: bool):
         super().__init__()
         self.ssl_model = ssl_model
         self.positive_pairs_sampling_method = positive_pairs_sampling_method
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.saving_path = saving_path 
+        self.use_moving_average = use_moving_average
 
     def training_step(self, batch, batch_idx):
         view_1, view_2 = self.positive_pairs_sampling_method(batch)
@@ -130,6 +132,10 @@ class SSLModule(L.LightningModule):
     def on_train_epoch_end(self):
         encoder = self.get_encoder()
         torch.save(encoder.state_dict(), self.saving_path)
+
+    def on_before_zero_grad(self, _):
+        if self.use_moving_average:
+            self.ssl_model.update_moving_average()
 
     def configure_optimizers(self):
         return {

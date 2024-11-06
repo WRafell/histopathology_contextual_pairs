@@ -1,3 +1,4 @@
+from copy import deepcopy
 import torch
 
 
@@ -39,5 +40,5 @@ class BarlowTwins(torch.nn.Module):
         return loss
     
     def get_encoder(self):
-        return self.backbone
+        return deepcopy(self.backbone)
     
