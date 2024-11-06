@@ -14,6 +14,7 @@ BASENAME = None
 PROXIMITY_LEVEL = None
 
 
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(args: OmegaConf):
 
@@ -81,9 +82,9 @@ if __name__=='__main__':
     print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
           f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.")   
     
-    with open("logs/proximity_levels.txt", 'a') as logger:
-        print(f"Level: {PROXIMITY_LEVEL}", file=logger)
+    with open(f"logs/{BASENAME}.txt", 'a') as logger:
         print(f"{BASENAME}", file=logger)
+        print(f"Level: {PROXIMITY_LEVEL}", file=logger)        
         print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
           f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.", 
           file=logger)   

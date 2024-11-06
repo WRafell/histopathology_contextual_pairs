@@ -40,6 +40,11 @@ barlow_twins:
   projector: 1028-1028-1028
   lambd: 0.0051
 
+byol:
+  mlp_hidden_size: 512
+  projector_dim: 128
+  momentum: 0.996
+
 
 # MIL related
 mil:
