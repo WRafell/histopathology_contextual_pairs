@@ -42,6 +42,12 @@ class BYOL(torch.nn.Module):
             target_parameter.data.copy_(online_parameter.data)
             target_parameter.requires_grad = False  # not updating
 
+    @staticmethod
+    def loss_function(x, y):
+        x = F.normalize(x, dim=1)
+        y = F.normalize(y, dim=1)
+        return 2 - 2 * (x * y).sum(dim=-1)
+
     def forward(self, view_1, view_2):
 
         predictions_from_view_1 = self.predictor(self.online_network(view_1))

@@ -108,6 +108,7 @@ def main(args: OmegaConf) -> None:
             mlp_hidden_size=args.byol.mlp_hidden_size,
             projector_dim=args.byol.projector_dim,
             momentum=args.byol.momentum)
+        ssl_model._initialize_target_network()
     else:
         raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
 

@@ -9,7 +9,7 @@ ssl_method="byol"
 
 for proximity_level in "${proximity_levels[@]}"; do
 
-    echo "Proximity level: $proximity_level"
+    echo "SSL Method: $ssl_method , Proximity level: $proximity_level"
 
     echo "Starting SSL model training..."
     python train_ssl_model.py proximity_level=$proximity_level ssl_method=$ssl_method
