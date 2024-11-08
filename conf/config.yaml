@@ -45,6 +45,11 @@ byol:
   projector_dim: 128
   momentum: 0.996
 
+simsiam:
+  encoder_dim: 2048
+  pred_dim: 512
+
+
 
 # MIL related
 mil:

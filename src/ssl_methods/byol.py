@@ -68,8 +68,8 @@ class BYOL(torch.nn.Module):
             targets_to_view_2 = self.target_network(view_1)
             targets_to_view_1 = self.target_network(view_2)
 
-        loss = self.loss_function(predictions_from_view_1, targets_to_view_1)
-        loss += self.loss_function(predictions_from_view_2, targets_to_view_2)
+        loss = self.loss_function(predictions_from_view_1, targets_to_view_1.detach())
+        loss += self.loss_function(predictions_from_view_2, targets_to_view_2.detach())
         return loss.mean()
     
     def get_encoder(self):

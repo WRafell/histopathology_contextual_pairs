@@ -9,7 +9,7 @@ import hydra
 import torchvision
 import lightning as L
 
-torch.set_float32_matmul_precision('high')
+ 
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")

@@ -12,6 +12,7 @@ torch.set_float32_matmul_precision('high')
 TEST_ACC, TEST_AUC = [], []
 BASENAME = None
 PROXIMITY_LEVEL = None
+LOGGER_NAME = None
 
 
 
@@ -21,12 +22,14 @@ def main(args: OmegaConf):
     global TEST_ACC
     global TEST_AUC
     global BASENAME
+    global LOGGER_NAME
     global PROXIMITY_LEVEL
     
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
     BASENAME = basename
     PROXIMITY_LEVEL = args.proximity_level
+    LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
 
 
     """ LOAD DATA """
@@ -82,7 +85,7 @@ if __name__=='__main__':
     print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
           f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.")   
     
-    with open(f"logs/{BASENAME}.txt", 'a') as logger:
+    with open(f"logs/{LOGGER_NAME}.txt", 'a') as logger:
         print(f"{BASENAME}", file=logger)
         print(f"Level: {PROXIMITY_LEVEL}", file=logger)        
         print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
