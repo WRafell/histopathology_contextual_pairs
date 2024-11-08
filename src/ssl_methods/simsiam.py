@@ -1,10 +1,9 @@
-""" https://github.com/facebookresearch/simsiam/blob/main/simsiam/builder.py """
-
 from copy import deepcopy
 from torch import nn
 import torch
 
 
+""" https://github.com/facebookresearch/simsiam/blob/main/simsiam/builder.py """
 class SimSiam(nn.Module):
     def __init__(self, backbone: torch.nn.Module, embedding_dim: int, encoder_dim: int = 2048, pred_dim: int = 512):
         super().__init__()

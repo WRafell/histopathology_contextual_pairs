@@ -9,7 +9,8 @@ import hydra
 import torchvision
 import lightning as L
 
- 
+
+torch.set_float32_matmul_precision('high')
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -109,6 +110,14 @@ def main(args: OmegaConf) -> None:
             projector_dim=args.byol.projector_dim,
             momentum=args.byol.momentum)
         ssl_model._initialize_target_network()
+    elif args.ssl_method.lower() == 'simsiam':
+        from src.ssl_methods.simsiam import SimSiam
+        ssl_model = SimSiam(
+            backbone=backbone,
+            embedding_dim=embedding_dim,
+            encoder_dim=args.simsiam.encoder_dim,
+            pred_dim=args.simsiam.pred_dim
+        )
     else:
         raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
 
