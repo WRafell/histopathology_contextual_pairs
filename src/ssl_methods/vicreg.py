@@ -1,3 +1,4 @@
+from copy import deepcopy
 from torch import nn
 import torch
 import torch.distributed
@@ -12,6 +13,7 @@ class VICReg(nn.Module):
             sim_coeff: float,
             std_coeff: float,
             cov_coeff: float):
+        super().__init__()
         self.backbone = backbone
         self.embedding_dim = embedding_dim
         self.num_features = int(projector_arch.split("-")[-1])
@@ -51,6 +53,9 @@ class VICReg(nn.Module):
             + self.cov_coeff * cov_loss
         )
         return loss
+    
+    def get_encoder(self):
+        return deepcopy(self.backbone)
 
 
 

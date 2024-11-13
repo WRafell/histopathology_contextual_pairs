@@ -32,7 +32,7 @@ scheduler:
 ssl_method: barlow_twins
 accelerator: gpu
 devices: [0,1]
-max_epochs: 1
+max_epochs: 100
 
 
 # SSL related
