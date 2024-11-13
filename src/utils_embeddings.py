@@ -41,7 +41,7 @@ def save_embeddings(
         encoder: torch.nn.Module, 
         img_size: int, 
         device: str, 
-        rewrite: bool = False,
+        rewrite: bool = True,
         batch_size: int = 64, 
         num_workers: int = 16) -> list:
     encoder.eval()

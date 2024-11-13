@@ -46,7 +46,7 @@ byol:
   momentum: 0.996
 
 simsiam:
-  encoder_dim: 2048
+  encoder_dim: 1024
   pred_dim: 512
 
 

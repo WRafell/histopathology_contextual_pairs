@@ -25,9 +25,19 @@ def main(args: OmegaConf) -> None:
     """ SSL MODEL """
     if args.backbone_name.lower() == 'resnet18':
         encoder = torchvision.models.resnet18(weights='ResNet18_Weights.DEFAULT')
+        embedding_dim = encoder.fc.in_features
         encoder.fc = torch.nn.Identity()
     else:
         raise ValueError(f"{args.backbone_name} is not a valid backbone model")
+    
+    # if args.ssl_method.lower() == 'simsiam':
+    #     print("Loading SimSiam encoder")
+    #     from src.ssl_methods.simsiam import SimSiamEncoder
+    #     encoder = SimSiamEncoder(
+    #         backbone=encoder,
+    #         embedding_dim=embedding_dim,
+    #         encoder_dim=args.simsiam.encoder_dim
+    #     )
     
     encoder_path = f"models/{basename}.pth"
     print(f"Encoder path: {encoder_path}")

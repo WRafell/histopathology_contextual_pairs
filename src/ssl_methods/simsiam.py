@@ -4,13 +4,10 @@ import torch
 
 
 """ https://github.com/facebookresearch/simsiam/blob/main/simsiam/builder.py """
-class SimSiam(nn.Module):
-    def __init__(self, backbone: torch.nn.Module, embedding_dim: int, encoder_dim: int = 2048, pred_dim: int = 512):
+class SimSiamEncoder(nn.Module):
+    def __init__(self, backbone: torch.nn.Module, embedding_dim: int, encoder_dim: int):
         super().__init__()
-        self.embedding_dim = embedding_dim   
-
         self.backbone = backbone
-
         self.encoder = nn.Sequential(
             nn.Linear(embedding_dim, embedding_dim, bias=False),
             nn.BatchNorm1d(embedding_dim),
@@ -21,7 +18,19 @@ class SimSiam(nn.Module):
             nn.Linear(embedding_dim, encoder_dim, bias=False),
             nn.BatchNorm1d(encoder_dim, affine=False)
         )
+    def forward(self, x):
+        return self.encoder(self.backbone(x))
 
+
+class SimSiam(nn.Module):
+    def __init__(self, backbone: torch.nn.Module, embedding_dim: int, encoder_dim: int, pred_dim: int):
+        super().__init__()
+
+        self.encoder = SimSiamEncoder(
+            backbone=backbone,
+            embedding_dim=embedding_dim,
+            encoder_dim=encoder_dim)
+        
         self.predictor = nn.Sequential(
             nn.Linear(encoder_dim, pred_dim, bias=False),
             nn.BatchNorm1d(pred_dim),
@@ -33,8 +42,8 @@ class SimSiam(nn.Module):
     
     def forward(self, view_1: torch.tensor, view_2: torch.tensor):
 
-        z1 = self.encoder(self.backbone(view_1))
-        z2 = self.encoder(self.backbone(view_2))
+        z1 = self.encoder(view_1)
+        z2 = self.encoder(view_2)
 
         p1 = self.predictor(z1)
         p2 = self.predictor(z2)
@@ -43,6 +52,6 @@ class SimSiam(nn.Module):
         return loss
     
     def get_encoder(self):
-        return deepcopy(self.backbone)
+        return deepcopy(self.encoder.backbone)
 
 

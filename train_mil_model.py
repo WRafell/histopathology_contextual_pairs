@@ -44,8 +44,19 @@ def main(args: OmegaConf):
 
 
     """ SLIDE CLASSIFICATION """
-    embedding_dim = 512 if args.backbone_name == 'resnet18' else 1024
-    num_classes = 2 if args.dataset.lower() == 'camelyon16' else 3
+    # Embedding dimension
+    if args.backbone_name.lower() == 'resnet18':
+        embedding_dim = 512
+    else:
+        raise ValueError(f"{args.backbone_name} or { args.ssl_method.lower()} are not implemented")
+    
+    # Number of classes    
+    if args.dataset.lower() == 'camelyon16':
+        num_classes = 2
+    else:
+        raise ValueError(f"{args.dataset.lower()} dataset is not implemented")
+    
+    # MIL method
     if args.mil.mil_method.lower() == 'abmil':
         from src.mil_methods.abmil import ABMIL
         trainer = ABMIL(
@@ -57,6 +68,7 @@ def main(args: OmegaConf):
             device=args.device)
     else:
         raise ValueError(f"{args.mil.mil_method.lower()} is not valid MIL method")
+    
     best_model = trainer.train(train_data, val_data)
     test_loss, test_acc, test_auc = trainer.test(best_model, test_data)  
     print(f"Results from: {basename} bags. MIL model: {args.mil.mil_method.lower()}")  
