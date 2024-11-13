@@ -7,15 +7,14 @@ import torch.nn.functional as F
 class VICReg(nn.Module):
     def __init__(self, 
             backbone: nn.Module, 
-            embedding_dim: int, 
-            num_features: int, 
+            embedding_dim: int,  
             projector_arch: str,
             sim_coeff: float,
             std_coeff: float,
             cov_coeff: float):
         self.backbone = backbone
         self.embedding_dim = embedding_dim
-        self.num_features = num_features
+        self.num_features = int(projector_arch.split("-")[-1])
         self.projector_arc = projector_arch
         self.projector = Projector(
             embedding_dim=embedding_dim, 

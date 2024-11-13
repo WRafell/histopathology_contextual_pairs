@@ -32,7 +32,7 @@ scheduler:
 ssl_method: barlow_twins
 accelerator: gpu
 devices: [0,1]
-max_epochs: 100
+max_epochs: 1
 
 
 # SSL related
@@ -49,7 +49,11 @@ simsiam:
   encoder_dim: 1024
   pred_dim: 512
 
-
+vicreg:
+    projector_arch: 1028-1028-1028
+    sim_coeff: 25.0
+    std_coeff: 25.0
+    cov_coeff: 1.0
 
 # MIL related
 mil:

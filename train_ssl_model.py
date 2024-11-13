@@ -116,8 +116,16 @@ def main(args: OmegaConf) -> None:
             backbone=backbone,
             embedding_dim=embedding_dim,
             encoder_dim=args.simsiam.encoder_dim,
-            pred_dim=args.simsiam.pred_dim
-        )
+            pred_dim=args.simsiam.pred_dim)
+    elif args.ssl_method.lower() == 'vicreg':
+        from src.ssl_methods.vicreg import VICReg
+        ssl_model = VICReg(
+            backbone=backbone,
+            embedding_dim=embedding_dim,
+            projector_arch=args.vicreg.projector_arch,
+            sim_coeff=args.vicreg.sim_coeff,
+            std_coeff=args.vicreg.std_coeff,
+            cov_coeff=args.vicreg.cov_coeff)
     else:
         raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
 
