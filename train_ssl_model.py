@@ -83,6 +83,7 @@ def main(args: OmegaConf) -> None:
 
 
     """ SSL MODEL """
+    # BACKBONE
     print(f"\nSSL Method: {args.ssl_method} with {args.backbone_name} as backbone")     
     if args.backbone_name.lower() == 'resnet18':
         backbone = torchvision.models.resnet18(weights='ResNet18_Weights.DEFAULT')
@@ -90,10 +91,9 @@ def main(args: OmegaConf) -> None:
         backbone.fc = torch.nn.Identity()
     else:
         raise ValueError(f"{args.backbone_name} is not a valid backbone model")
-
-    optimizer: torch.optim = hydra.utils.instantiate(args.optimizer, params=backbone.parameters())
-    scheduler: torch.optim.lr_scheduler = hydra.utils.instantiate(args.scheduler, optimizer=optimizer, T_max=args.max_epochs)
     
+      
+    # SSL METHOD
     if args.ssl_method.lower() == 'barlow_twins':
         from src.ssl_methods.barlow_twins import BarlowTwins
         ssl_model = BarlowTwins(
@@ -128,6 +128,29 @@ def main(args: OmegaConf) -> None:
             cov_coeff=args.vicreg.cov_coeff)
     else:
         raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
+    
+
+
+    if args.use_lars_optimizer:
+        from src.lars import LARS, AdjustLearningRate, exclude_bias_and_norm
+        optimizer: torch.optim = LARS(
+            params=ssl_model.parameters,
+            lr=args.lars.lr,
+            weight_decay=args.lars.weight_decay,
+            weight_decay_filter=exclude_bias_and_norm,
+            lars_adaptation_filter=exclude_bias_and_norm)
+        scheduler = None
+        adjust_learning_rate = AdjustLearningRate(
+            max_epochs=args.max_epochs,
+            batch_size=args.batch_size,
+            base_lr=args.lars.base_lr,
+            num_batches=len(train_loader)
+        )
+        callbacks = [RichProgressBar(leave=False), adjust_learning_rate]
+    else:
+        optimizer: torch.optim = hydra.utils.instantiate(args.optimizer, params=ssl_model.parameters())
+        scheduler: torch.optim.lr_scheduler = hydra.utils.instantiate(args.scheduler, optimizer=optimizer, T_max=args.max_epochs)
+        callbacks = [RichProgressBar(leave=False)]
 
     use_moving_average: bool = args.ssl_method.lower() in ['byol']  
 
@@ -149,7 +172,7 @@ def main(args: OmegaConf) -> None:
         precision="bf16-mixed",
         accelerator=args.accelerator,
         devices=args.devices,
-        callbacks=[RichProgressBar(leave=False)],
+        callbacks=callbacks,
         limit_val_batches=0)
     trainer.fit(model=ssl_module, train_dataloaders=train_loader)
 

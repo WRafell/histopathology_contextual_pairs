@@ -1,6 +1,7 @@
 from torchvision.transforms import v2
 from typing import Callable
 from PIL import Image
+import math
 import torch
 import lightning as L
 
@@ -138,10 +139,13 @@ class SSLModule(L.LightningModule):
             self.ssl_model.update_moving_average()
 
     def configure_optimizers(self):
-        return {
-            "optimizer": self.optimizer,
-            "lr_scheduler": self.scheduler,
-        }
+        if self.scheduler is not None:
+            return {
+                "optimizer": self.optimizer,
+                "lr_scheduler": self.scheduler}
+        else:
+            return self.optimizer
+
 
     def get_encoder(self):
         return self.ssl_model.get_encoder()

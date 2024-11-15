@@ -23,7 +23,7 @@ num_preselected_patches: 256000
 
 # Model related
 backbone_name: resnet18
-optimizer:
+optimizer: 
   _target_: torch.optim.Adam
   lr: 0.0003
   weight_decay: 0.01
@@ -33,6 +33,14 @@ ssl_method: barlow_twins
 accelerator: gpu
 devices: [0,1]
 max_epochs: 100
+
+# LARS Optimizer
+use_lars_optimizer: True
+lars:
+    lr: 0
+    weight_decay: 1
+    weight_decay_filter: 1
+    lars_adaptation_filter: 2
 
 
 # SSL related
@@ -46,7 +54,7 @@ byol:
   momentum: 0.996
 
 simsiam:
-  encoder_dim: 1024
+  encoder_dim: 1028
   pred_dim: 512
 
 vicreg:

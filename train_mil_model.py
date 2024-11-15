@@ -1,5 +1,6 @@
 from src.utils_common import set_manual_seed, get_basename
 from omegaconf import OmegaConf
+from pathlib import Path
 import torch
 import hydra
 import numpy as np
@@ -13,6 +14,7 @@ TEST_ACC, TEST_AUC = [], []
 BASENAME = None
 PROXIMITY_LEVEL = None
 LOGGER_NAME = None
+LOGGER_PATH = None
 
 
 
@@ -23,6 +25,7 @@ def main(args: OmegaConf):
     global TEST_AUC
     global BASENAME
     global LOGGER_NAME
+    global LOGGER_PATH
     global PROXIMITY_LEVEL
     
     basename = get_basename(args=args)
@@ -30,6 +33,8 @@ def main(args: OmegaConf):
     BASENAME = basename
     PROXIMITY_LEVEL = args.proximity_level
     LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+    LOGGER_PATH = f"logs/slide_level/{args.dataset}"
+    Path(LOGGER_PATH).mkdir(exist_ok=True, parents=True)
 
 
     """ LOAD DATA """
@@ -96,10 +101,12 @@ if __name__=='__main__':
     
     print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
           f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.")   
-    
-    with open(f"logs/{LOGGER_NAME}.txt", 'a') as logger:
+        
+    with open(f"{LOGGER_PATH}/{LOGGER_NAME}.txt", 'a') as logger:
         print(f"{BASENAME}", file=logger)
-        print(f"Level: {PROXIMITY_LEVEL}", file=logger)        
+        print(f"Level: {PROXIMITY_LEVEL}", file=logger)   
+        print(f"All test acc: {TEST_ACC}", file=logger)
+        print(f"All test auroc: {TEST_AUC}", file=logger)     
         print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
           f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.", 
           file=logger)   
