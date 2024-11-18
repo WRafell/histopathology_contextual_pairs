@@ -42,7 +42,7 @@ def save_embeddings(
         img_size: int, 
         device: str, 
         rewrite: bool = True,
-        batch_size: int = 64, 
+        batch_size: int = 128, 
         num_workers: int = 16) -> list:
     encoder.eval()
     encoder.to(device)
@@ -63,7 +63,7 @@ def save_embeddings(
 
             embeddings = []
             for patches in dataloader:
-                patches = patches.to(device)
+                patches = patches.to(device, non_blocking=True)
                 embedding = encoder(patches)
                 embeddings.append(embedding.cpu())
             embeddings = torch.cat(embeddings, dim=0)

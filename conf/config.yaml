@@ -3,7 +3,7 @@ device: cuda:0
 
 
 # Data related
-dataset: camelyon16
+dataset: seedp-stomach
 shuffle_train: True
 patch_resize: 64
 batch_size: 2048
@@ -13,7 +13,7 @@ num_slides_per_batch: 16
 
 
 # Pair sampling
-positive_pair_sampling: preselected_positive_pairs
+positive_pair_sampling: baseline
 proximity_level: 7
 
 
@@ -38,7 +38,8 @@ max_epochs: 100
 use_lars_optimizer: True
 lars:
     lr: 0
-    weight_decay: 1
+    base_lr: 0.2
+    weight_decay: 0.000001
     weight_decay_filter: 1
     lars_adaptation_filter: 2
 

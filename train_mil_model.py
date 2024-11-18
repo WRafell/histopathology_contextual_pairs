@@ -13,9 +13,9 @@ torch.set_float32_matmul_precision('high')
 TEST_ACC, TEST_AUC = [], []
 BASENAME = None
 PROXIMITY_LEVEL = None
+LOGGER_MODE = None
 LOGGER_NAME = None
 LOGGER_PATH = None
-
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -24,6 +24,7 @@ def main(args: OmegaConf):
     global TEST_ACC
     global TEST_AUC
     global BASENAME
+    global LOGGER_MODE
     global LOGGER_NAME
     global LOGGER_PATH
     global PROXIMITY_LEVEL
@@ -32,9 +33,21 @@ def main(args: OmegaConf):
     print(f"Basename: {basename}")
     BASENAME = basename
     PROXIMITY_LEVEL = args.proximity_level
-    LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
-    LOGGER_PATH = f"logs/slide_level/{args.dataset}"
+    if (args.positive_pair_sampling.lower() == 'preselected_positive_pairs') and (args.proximity_level == 0):
+        LOGGER_MODE = 'w'
+    else:
+        LOGGER_MODE = 'a'
+
+    LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"    
+
+    if "level=" in basename:
+        LOGGER_PATH = f"logs/slide_level/{args.dataset}/proximity_ablation"
+    else:
+        LOGGER_PATH = f"logs/slide_level/{args.dataset}/standard_exp"
+
     Path(LOGGER_PATH).mkdir(exist_ok=True, parents=True)
+
+    print(f"Logger path: {LOGGER_PATH}. Logger mode: {LOGGER_MODE}")
 
 
     """ LOAD DATA """
@@ -100,9 +113,10 @@ if __name__=='__main__':
     test_auc_std = np.std(TEST_AUC)
     
     print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
-          f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.")   
+          f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.")  
+
         
-    with open(f"{LOGGER_PATH}/{LOGGER_NAME}.txt", 'a') as logger:
+    with open(f"{LOGGER_PATH}/{LOGGER_NAME}.txt", LOGGER_MODE) as logger:
         print(f"{BASENAME}", file=logger)
         print(f"Level: {PROXIMITY_LEVEL}", file=logger)   
         print(f"All test acc: {TEST_ACC}", file=logger)

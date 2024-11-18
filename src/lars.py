@@ -33,7 +33,7 @@ class AdjustLearningRate(L.Callback):
         # Adjust the learning rate
         lr = self.adjust_learning_rate(pl_module.trainer.optimizers[0], current_step)
         # Log the learning rate for tracking
-        pl_module.log("lr", lr, on_step=True, on_epoch=False)
+        pl_module.log("lr", lr, on_step=True, on_epoch=False, prog_bar=True)
 
 
 # https://github.com/facebookresearch/vicreg/blob/main/main_vicreg.py
@@ -59,7 +59,11 @@ class LARS(torch.optim.Optimizer):
         super().__init__(params, defaults)
 
     @torch.no_grad()
-    def step(self):
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
         for g in self.param_groups:
             for p in g["params"]:
                 dp = p.grad
@@ -92,6 +96,8 @@ class LARS(torch.optim.Optimizer):
                 mu.mul_(g["momentum"]).add_(dp)
 
                 p.add_(mu, alpha=-g["lr"])
+
+        return loss
 
 
 def exclude_bias_and_norm(p):

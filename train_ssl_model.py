@@ -1,5 +1,5 @@
 from src.utils_common import set_manual_seed, get_basename
-from src.utils_self_supervised import Transforms, SSLModule
+from src.utils_self_supervised import SSLModule
 from omegaconf import OmegaConf
 from lightning.pytorch.callbacks import RichProgressBar
 from pathlib import Path
@@ -20,16 +20,16 @@ def main(args: OmegaConf) -> None:
 
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
-    saving_path = f"models/{basename}.pth"
+    saving_path = f"models/{args.dataset.lower()}/{basename}.pth"
     Path(saving_path).parent.mkdir(exist_ok=True, parents=True)
 
 
-    """ LOAD DATASET """
+    """ LOAD DATA """
     dataset_name = args.dataset.lower()
-    assert dataset_name in ['camelyon16'], f"{dataset_name} is not a valid dataset"
+    assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon'], f"{dataset_name} is not a valid dataset"
     print(f"\nDataset: {dataset_name}")
 
-    preselected_samples: bool = args.positive_pair_sampling == 'preselected_positive_pairs'
+    preselected_samples = args.positive_pair_sampling == 'preselected_positive_pairs'
     if preselected_samples:
         from src.utils_data import load_preselected_samples
         from src.utils_self_supervised import PreselectedPairsDataset
@@ -39,13 +39,9 @@ def main(args: OmegaConf) -> None:
         print(f"Preselected samples from: {preselected_csv_dir} with Proximity level: {args.proximity_level}")
         train_df = load_preselected_samples(preselected_csv_dir)
         data = train_df[['pivot_patch', f'neighbor_level_{args.proximity_level}']].values.tolist()
-        transforms_pivot = Transforms(resize_int=args.patch_resize).train_transforms
-        transforms_neighbor = Transforms(resize_int=args.patch_resize).train_transforms_prime
-        dataset = PreselectedPairsDataset(data=data, transforms_pivot=transforms_pivot, transforms_neighbor=transforms_neighbor)
     else:
         from src.utils_data import load_dataset, shuffle_train_data
-        from src.utils_self_supervised import TwoViewsDataset
-        df = load_dataset(dataset_name)        
+        df = load_dataset(dataset_name)   
         train_df = df.query("subset=='train'")
         shuffled_train_df = shuffle_train_data(
             train_df=train_df,
@@ -53,13 +49,44 @@ def main(args: OmegaConf) -> None:
             num_batches=args.num_batches,
             num_slides_per_batch=args.num_slides_per_batch)
         data = shuffled_train_df[['img_path', 'slide', 'coords']].values.tolist()
-        transforms = Transforms(resize_int=args.patch_resize).two_views_transform
+
+
+    """ LOAD TRANSFORMS AND POSITIVE PAIR SAMPLIN METHOD """
+    pps = args.positive_pair_sampling
+    print(f"Positive pair sampling: {pps}")
+    if pps == 'baseline':
+        from src.utils_transforms import Transforms 
+        from src.utils_self_supervised import TwoViewsDataset       
+        from src.utils_positive_pairs import two_distortion_positive_pairs
+        transforms = Transforms(resize_int=args.patch_resize, use_prime_transforms=True).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
+        positive_pairs_sampling_method = two_distortion_positive_pairs
 
-    print("Some samples from the dataset:")
-    for i in range(5):
-        print(data[i])
+    elif pps == 'closest_patch':
+        from src.utils_transforms import Transforms
+        from src.utils_self_supervised import TwoViewsDataset
+        from src.utils_positive_pairs import closest_patch_positive_pairs
+        transforms = Transforms(resize_int=args.patch_resize, use_prime_transforms=False).two_views_transform
+        dataset = TwoViewsDataset(data=data, transforms=transforms)
+        positive_pairs_sampling_method = closest_patch_positive_pairs
 
+    elif pps == 'preselected_positive_pairs':
+        from src.utils_transforms import Transforms
+        from src.utils_self_supervised import PreselectedPairsDataset
+        from src.utils_positive_pairs import two_distortion_positive_pairs
+        transforms_pivot = Transforms(resize_int=args.patch_resize).train_transforms
+        if args.proximity_level == 0:
+            transforms_neighbor = Transforms(resize_int=args.patch_resize).train_transforms_prime
+        else:
+            transforms_neighbor = Transforms(resize_int=args.patch_resize).train_transforms
+        dataset = PreselectedPairsDataset(data=data, transforms_pivot=transforms_pivot, transforms_neighbor=transforms_neighbor)
+        positive_pairs_sampling_method = two_distortion_positive_pairs
+
+    else:
+        raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
+    
+     
+    """ DATALOADER """
     train_loader = torch.utils.data.DataLoader(
         dataset=dataset, 
         batch_size=args.batch_size, 
@@ -68,18 +95,6 @@ def main(args: OmegaConf) -> None:
         pin_memory=True)
     _ = next(iter(train_loader))
     print("Data loaded")
-
-
-    """ POSITIVE PAIR SAMPLING """
-    print(f"\nPositive pair sampling: {args.positive_pair_sampling}")
-    if args.positive_pair_sampling in ['baseline', 'preselected_positive_pairs']:
-        from src.utils_positive_pairs import two_distortion_positive_pairs
-        positive_pairs_sampling_method = two_distortion_positive_pairs
-    elif args.positive_pair_sampling == 'closest_patch':
-        from src.utils_positive_pairs import closest_patch_positive_pairs
-        positive_pairs_sampling_method = closest_patch_positive_pairs
-    else:
-        raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
 
 
     """ SSL MODEL """
@@ -132,9 +147,10 @@ def main(args: OmegaConf) -> None:
 
 
     if args.use_lars_optimizer:
+        print("Using LARS optimizer")
         from src.lars import LARS, AdjustLearningRate, exclude_bias_and_norm
         optimizer: torch.optim = LARS(
-            params=ssl_model.parameters,
+            params=ssl_model.parameters(),
             lr=args.lars.lr,
             weight_decay=args.lars.weight_decay,
             weight_decay_filter=exclude_bias_and_norm,

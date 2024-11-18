@@ -115,9 +115,21 @@ def get_camelyon16(csv_file: str = "csv/camelyon16_data.csv", patch_size: int = 
     return df
 
 
+def get_seedp_stomach():
+    return pd.read_csv("csv/seedp-stomach_data.csv")
+
+
+def get_seedp_colon():
+    return pd.read_csv("csv/seedp-colon_data.csv")
+
+
 def load_dataset(dataset: str) -> pd.DataFrame:
     if dataset == 'camelyon16':
         return get_camelyon16()
+    elif dataset == 'seedp-stomach':
+        return get_seedp_stomach()
+    elif dataset == 'seedp-colon':
+        return get_seedp_colon()
     else:
         raise ValueError(f"{dataset} is not a valid dataset")
     

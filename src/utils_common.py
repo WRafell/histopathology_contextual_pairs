@@ -13,8 +13,9 @@ def set_manual_seed(random_seed: int):
 def get_basename(args: OmegaConf):
 
     preselected_samples: bool = args.positive_pair_sampling == 'preselected_positive_pairs'
+    dataset = args.dataset.lower()
 
     if preselected_samples:
-        return f"pps={args.positive_pair_sampling}-level={args.proximity_level}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+        return f"ds={dataset}_pps={args.positive_pair_sampling}-level={args.proximity_level}_ssl={args.ssl_method}_encoder={args.backbone_name}"
     else:
-        return f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+        return f"ds={dataset}_pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"

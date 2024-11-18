@@ -47,7 +47,7 @@ def main(args: OmegaConf) -> None:
 
 
     """ CREATING EMBEDDINGS """
-    saving_root = f"embeddings/{args.dataset}/{basename}"
+    saving_root = f"embeddings/{args.dataset.lower()}/{basename}"
     Path(saving_root).mkdir(exist_ok=True, parents=True)
     emb_data = save_embeddings(
         saving_root=saving_root,
