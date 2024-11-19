@@ -39,7 +39,7 @@ def main(args: OmegaConf) -> None:
     #         encoder_dim=args.simsiam.encoder_dim
     #     )
     
-    encoder_path = f"models/{basename}.pth"
+    encoder_path = f"models/{args.dataset.lower()}/{basename}.pth"
     print(f"Encoder path: {encoder_path}")
     assert Path(encoder_path).exists(), f"{encoder_path} does not exist"
     state_dict = torch.load(encoder_path, weights_only=True)

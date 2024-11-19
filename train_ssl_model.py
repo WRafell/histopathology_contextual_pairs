@@ -6,6 +6,7 @@ from pathlib import Path
 import time
 import torch
 import hydra
+import pickle
 import torchvision
 import lightning as L
 
@@ -15,6 +16,13 @@ torch.set_float32_matmul_precision('high')
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(args: OmegaConf) -> None:
+
+    assert args.positive_pair_sampling in [
+        'baseline', 
+        'randaugmentna', 
+        'closest_patch', 
+        'random_neighbor', 
+        'preselected_positive_pairs']
 
     set_manual_seed(random_seed=args.random_seed)
 
@@ -45,6 +53,7 @@ def main(args: OmegaConf) -> None:
         train_df = df.query("subset=='train'")
         shuffled_train_df = shuffle_train_data(
             train_df=train_df,
+            dataset_name=args.dataset.lower(),
             batch_size=args.batch_size,
             num_batches=args.num_batches,
             num_slides_per_batch=args.num_slides_per_batch)
@@ -55,30 +64,59 @@ def main(args: OmegaConf) -> None:
     pps = args.positive_pair_sampling
     print(f"Positive pair sampling: {pps}")
     if pps == 'baseline':
-        from src.utils_transforms import Transforms 
+        from src.utils_transforms import StandardTransforms 
         from src.utils_self_supervised import TwoViewsDataset       
         from src.utils_positive_pairs import two_distortion_positive_pairs
-        transforms = Transforms(resize_int=args.patch_resize, use_prime_transforms=True).two_views_transform
+        transforms = StandardTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         positive_pairs_sampling_method = two_distortion_positive_pairs
 
     elif pps == 'closest_patch':
-        from src.utils_transforms import Transforms
+        from src.utils_transforms import ContextSamplingTransforms
         from src.utils_self_supervised import TwoViewsDataset
-        from src.utils_positive_pairs import closest_patch_positive_pairs
-        transforms = Transforms(resize_int=args.patch_resize, use_prime_transforms=False).two_views_transform
+        from src.utils_positive_pairs import ContextPositivePairs
+        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
-        positive_pairs_sampling_method = closest_patch_positive_pairs
+        positive_pairs_sampling_method = ContextPositivePairs(minimum_distance=args.minimum_distance).closest_patch_positive_pairs
+
+    elif pps == 'random_neighbor':
+        from src.utils_transforms import ContextSamplingTransforms
+        from src.utils_self_supervised import TwoViewsDataset
+        from src.utils_positive_pairs import ContextPositivePairs
+        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
+        dataset = TwoViewsDataset(data=data, transforms=transforms)
+        positive_pairs_sampling_method = ContextPositivePairs().random_patch_positive_pairs
+
+    elif pps == 'randaugmentna':
+        from src.randstainna.randstainna import RandStainNA
+        from src.utils_transforms import RandStainNATransforms
+        from src.utils_self_supervised import TwoViewsDataset   
+        from src.utils_positive_pairs import two_distortion_positive_pairs 
+
+        # https://github.com/yiqings/RandStainNA/blob/master/main.py
+        randstainna_augment = RandStainNA(
+            yaml_file="./src/randstainna/randstainna.yaml",
+            std_hyper=-0.3,
+            probability=1.0,
+            distribution="normal",
+            is_train=True,)
+        transforms = RandStainNATransforms(
+            resize_int=args.patch_resize, 
+            randstainna_augment=randstainna_augment).two_views_transform
+        dataset = TwoViewsDataset(data=data, transforms=transforms)
+        positive_pairs_sampling_method = two_distortion_positive_pairs        
 
     elif pps == 'preselected_positive_pairs':
-        from src.utils_transforms import Transforms
         from src.utils_self_supervised import PreselectedPairsDataset
-        from src.utils_positive_pairs import two_distortion_positive_pairs
-        transforms_pivot = Transforms(resize_int=args.patch_resize).train_transforms
+        from src.utils_positive_pairs import two_distortion_positive_pairs        
         if args.proximity_level == 0:
-            transforms_neighbor = Transforms(resize_int=args.patch_resize).train_transforms_prime
+            from src.utils_transforms import StandardTransforms 
+            transforms_pivot = StandardTransforms(resize_int=args.patch_resize).train_transforms
+            transforms_neighbor = StandardTransforms(resize_int=args.patch_resize).train_transforms_prime
         else:
-            transforms_neighbor = Transforms(resize_int=args.patch_resize).train_transforms
+            from src.utils_transforms import ContextSamplingTransforms
+            transforms_pivot = ContextSamplingTransforms(resize_int=args.patch_resize).train_transforms
+            transforms_neighbor = ContextSamplingTransforms(resize_int=args.patch_resize).train_transforms
         dataset = PreselectedPairsDataset(data=data, transforms_pivot=transforms_pivot, transforms_neighbor=transforms_neighbor)
         positive_pairs_sampling_method = two_distortion_positive_pairs
 
@@ -191,6 +229,15 @@ def main(args: OmegaConf) -> None:
         callbacks=callbacks,
         limit_val_batches=0)
     trainer.fit(model=ssl_module, train_dataloaders=train_loader)
+
+    all_losses = {
+        'step_losses': ssl_module.step_losses,
+        'epoch_losses': ssl_module.epoch_losses
+    }
+    losses_dir = f"local/ssl_losses/{dataset_name}"
+    Path(losses_dir).mkdir(exist_ok=True, parents=True)
+    with open(f"{losses_dir}/{basename}.pkl", 'wb') as f:
+        pickle.dump(all_losses, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     elapsed_time = time.perf_counter() - start_time
     hours, remainder = divmod(elapsed_time, 3600)

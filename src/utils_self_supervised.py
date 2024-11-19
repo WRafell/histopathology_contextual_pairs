@@ -70,14 +70,25 @@ class SSLModule(L.LightningModule):
         self.scheduler = scheduler
         self.saving_path = saving_path 
         self.use_moving_average = use_moving_average
+        self.temp_step_losses = []
+        self.step_losses = []
+        self.epoch_losses = []
+
 
     def training_step(self, batch, batch_idx):
         view_1, view_2 = self.positive_pairs_sampling_method(batch)
         loss = self.ssl_model(view_1, view_2)       
         self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=view_1.size(0), sync_dist=True)
+        self.step_losses.append(loss.item())
+        self.temp_step_losses.append(loss.item())
         return loss
-    
+
+
     def on_train_epoch_end(self):
+        epoch_loss = torch.tensor(self.temp_step_losses).mean()
+        self.epoch_losses.append(epoch_loss.item())
+        self.temp_step_losses = []
+
         encoder = self.get_encoder()
         torch.save(encoder.state_dict(), self.saving_path)
 
@@ -96,3 +107,34 @@ class SSLModule(L.LightningModule):
 
     def get_encoder(self):
         return self.ssl_model.get_encoder()
+    
+
+# class DINOSSLModule(L.LightningModule):
+#     '''
+#     Mostly copy-paste from:
+#     https://github.com/kwea123/dino_pl/blob/master/train.py
+#     '''
+#     def __init__(
+#             self, 
+#             student,
+#             teacher,
+#             loss_function):
+#         super().__init__()
+
+#         self.automatic_optimization = False
+#         self.student = student
+#         self.teacher = teacher
+#         self.loss_function = loss_function
+
+#         self.teacher.load_state_dict(self.student.state_dict())
+#         for p in self.teacher.parameters():
+#             p.requires_grad = False
+
+        
+
+
+
+
+
+
+

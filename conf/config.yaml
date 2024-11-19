@@ -8,13 +8,14 @@ shuffle_train: True
 patch_resize: 64
 batch_size: 2048
 num_workers: 16
-num_batches: 1000
-num_slides_per_batch: 16
+num_batches: 100
+num_slides_per_batch: 100
 
 
 # Pair sampling
-positive_pair_sampling: baseline
-proximity_level: 7
+positive_pair_sampling: randaugmentna
+minimum_distance: 10
+proximity_level: 0
 
 
 # Preselected Pairs
@@ -29,7 +30,6 @@ optimizer:
   weight_decay: 0.01
 scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
-ssl_method: barlow_twins
 accelerator: gpu
 devices: [0,1]
 max_epochs: 100
@@ -45,6 +45,7 @@ lars:
 
 
 # SSL related
+ssl_method: barlow_twins
 barlow_twins:
   projector: 1028-1028-1028
   lambd: 0.0051

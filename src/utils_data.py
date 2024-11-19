@@ -7,6 +7,7 @@ import pandas as pd
 
 def shuffle_train_data(
         train_df: pd.DataFrame, 
+        dataset_name: str,
         batch_size: int, 
         num_batches: int, 
         num_slides_per_batch: int) -> pd.DataFrame:
@@ -18,6 +19,7 @@ def shuffle_train_data(
         subdf = train_df.query(f"slide in {random_slides}").sample(n=batch_size)
         subdf = subdf.sample(n=batch_size)
         new_train_df = pd.concat([new_train_df, subdf], axis=0) if new_train_df is not None else subdf
+    new_train_df.to_csv(f"csv/shuffled_{dataset_name}.csv", index=False)
     return new_train_df
 
 

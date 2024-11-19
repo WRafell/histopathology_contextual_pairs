@@ -30,3 +30,6 @@ for proximity_level in "${proximity_levels[@]}"; do
 done
 
 echo "All tasks completed successfully."
+
+
+# torch.optim.AdamW(params_groups)

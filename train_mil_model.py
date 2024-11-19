@@ -32,21 +32,17 @@ def main(args: OmegaConf):
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
     BASENAME = basename
-    PROXIMITY_LEVEL = args.proximity_level
-    if (args.positive_pair_sampling.lower() == 'preselected_positive_pairs') and (args.proximity_level == 0):
-        LOGGER_MODE = 'w'
-    else:
-        LOGGER_MODE = 'a'
-
-    LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"    
-
-    if "level=" in basename:
+    LOGGER_MODE = 'a'
+    LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"   
+    if (args.positive_pair_sampling.lower() == 'preselected_positive_pairs'):
         LOGGER_PATH = f"logs/slide_level/{args.dataset}/proximity_ablation"
+        PROXIMITY_LEVEL = args.proximity_level
+        if (args.proximity_level == 0):
+            LOGGER_MODE = 'w'
     else:
-        LOGGER_PATH = f"logs/slide_level/{args.dataset}/standard_exp"
+        LOGGER_PATH = f"logs/slide_level/{args.dataset}/standard_exp"    
 
     Path(LOGGER_PATH).mkdir(exist_ok=True, parents=True)
-
     print(f"Logger path: {LOGGER_PATH}. Logger mode: {LOGGER_MODE}")
 
 
@@ -69,7 +65,9 @@ def main(args: OmegaConf):
         raise ValueError(f"{args.backbone_name} or { args.ssl_method.lower()} are not implemented")
     
     # Number of classes    
-    if args.dataset.lower() == 'camelyon16':
+    if args.dataset.lower() in ['seedp-stomach', 'seedp-colon']:
+        num_classes = 3
+    elif args.dataset.lower() == 'camelyon16':
         num_classes = 2
     else:
         raise ValueError(f"{args.dataset.lower()} dataset is not implemented")
