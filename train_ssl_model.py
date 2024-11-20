@@ -19,11 +19,12 @@ def main(args: OmegaConf) -> None:
 
     assert args.positive_pair_sampling in [
         'baseline', 
-        'randaugmentna', 
         'closest_patch', 
         'random_neighbor', 
+        'region',
+        'different_normal_slide',
         'preselected_positive_pairs']
-
+    
     set_manual_seed(random_seed=args.random_seed)
 
     basename = get_basename(args=args)
@@ -57,7 +58,7 @@ def main(args: OmegaConf) -> None:
             batch_size=args.batch_size,
             num_batches=args.num_batches,
             num_slides_per_batch=args.num_slides_per_batch)
-        data = shuffled_train_df[['img_path', 'slide', 'coords']].values.tolist()
+        data = shuffled_train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
 
 
     """ LOAD TRANSFORMS AND POSITIVE PAIR SAMPLIN METHOD """
@@ -87,24 +88,27 @@ def main(args: OmegaConf) -> None:
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         positive_pairs_sampling_method = ContextPositivePairs().random_patch_positive_pairs
 
-    elif pps == 'randaugmentna':
-        from src.randstainna.randstainna import RandStainNA
-        from src.utils_transforms import RandStainNATransforms
-        from src.utils_self_supervised import TwoViewsDataset   
-        from src.utils_positive_pairs import two_distortion_positive_pairs 
-
-        # https://github.com/yiqings/RandStainNA/blob/master/main.py
-        randstainna_augment = RandStainNA(
-            yaml_file="./src/randstainna/randstainna.yaml",
-            std_hyper=-0.3,
-            probability=1.0,
-            distribution="normal",
-            is_train=True,)
-        transforms = RandStainNATransforms(
-            resize_int=args.patch_resize, 
-            randstainna_augment=randstainna_augment).two_views_transform
+    elif pps == 'different_normal_slide':
+        from src.utils_data import get_normal_label
+        from src.utils_transforms import ContextSamplingTransforms
+        from src.utils_self_supervised import TwoViewsDataset
+        from src.utils_positive_pairs import ContextPositivePairs
+        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
-        positive_pairs_sampling_method = two_distortion_positive_pairs        
+        normal_label = get_normal_label(dataset=dataset_name)
+        positive_pairs_sampling_method = ContextPositivePairs(normal_label=normal_label).diff_normal_slide_positive_pairs
+    
+    elif pps == 'region':
+        # from src.utils_transforms import RegionTransforms 
+        # from src.utils_self_supervised import TwoViewsDataset       
+        # from src.utils_positive_pairs import two_distortion_positive_pairs
+        # transforms = RegionTransforms(resize_int=args.patch_resize).two_views_transform
+        # dataset = TwoViewsDataset(data=data, transforms=transforms)
+        # positive_pairs_sampling_method = two_distortion_positive_pairs
+
+        # TO BE IMPLEMENTED PROPERLY
+
+        raise ValueError(f"{args.positive_pair_sampling} is not implemented yet")
 
     elif pps == 'preselected_positive_pairs':
         from src.utils_self_supervised import PreselectedPairsDataset
@@ -182,7 +186,6 @@ def main(args: OmegaConf) -> None:
     else:
         raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
     
-
 
     if args.use_lars_optimizer:
         print("Using LARS optimizer")

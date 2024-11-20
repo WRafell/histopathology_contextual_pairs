@@ -3,11 +3,18 @@
 # Exit script if any command fails
 set -e
 
-pps_list=("closest_patch")
+
+# PPS: ('baseline' 'randaugmentna' 'closest_patch' 'random_neighbor' 'region' 
+#       'different_normal_slide' 'preselected_positive_pairs')
+# SSL Methods: ("barlow_twins" "byol" "simsiam" "vicreg" "dino (soon)")
+
+
+pps_list=("region" "different_normal_slide")
 ssl_methods=("barlow_twins" "byol" "vicreg" "simsiam")
 
-for pps in "${pps_list[@]}"; do
-    for ssl_method in "${ssl_methods[@]}"; do
+
+for ssl_method in "${ssl_methods[@]}"; do
+    for pps in "${pps_list[@]}"; do
 
         echo "SSL Method: $ssl_method , PPS: $pps"
 

@@ -141,6 +141,15 @@ def load_preselected_samples(csv_dir: str) -> pd.DataFrame:
     return pd.read_csv(csv_dir)
 
 
+def get_normal_label(dataset: str) -> int:
+    if dataset == 'camelyon16':
+        return 0
+    elif dataset in ['seedp-stomach', 'seedp-colon']:
+        return 2
+    else:
+        raise ValueError(f"{dataset} is not a valid dataset")
+
+
 
 
 

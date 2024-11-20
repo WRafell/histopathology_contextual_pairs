@@ -9,10 +9,11 @@ class TwoViewsDataset(torch.utils.data.Dataset):
     def __init__(self, data, transforms):
         super().__init__()
         self.img_paths = [x[0] for x in data]
-        # self.patch_labels = [x[1] for x in data]
-        # self.slide_labels = [x[2] for x in data]
         self.slide_names = [x[1] for x in data]
-        self.coords = [x[2] for x in data]
+        self.coords = [x[2] for x in data]           
+        if isinstance(self.coords[0], str):
+            self.coords = [tuple(map(int, eval(coord))) for coord in self.coords]
+        self.slide_labels = [x[3] for x in data]  
         self.transforms = transforms
 
     def __len__(self):
@@ -21,14 +22,14 @@ class TwoViewsDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         img_path = self.img_paths[idx]
         # patch_label = self.patch_labels[idx]
-        # slide_label = self.slide_labels[idx]
+        slide_label = self.slide_labels[idx]
         slide_name = self.slide_names[idx]
         coord = self.coords[idx]
         with open(img_path, 'rb') as f:
             img = Image.open(f).convert('RGB')
         y1, y2 = self.transforms(img)
 
-        return (y1, y2), img_path, slide_name, coord
+        return (y1, y2), img_path, slide_name, coord, slide_label
     
 
 class PreselectedPairsDataset(torch.utils.data.Dataset):

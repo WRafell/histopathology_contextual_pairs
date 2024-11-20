@@ -15,6 +15,7 @@ num_slides_per_batch: 100
 # Pair sampling
 positive_pair_sampling: randaugmentna
 minimum_distance: 10
+normal_label: 2
 proximity_level: 0
 
 
