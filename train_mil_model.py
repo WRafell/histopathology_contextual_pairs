@@ -13,6 +13,7 @@ torch.set_float32_matmul_precision('high')
 TEST_ACC, TEST_AUC = [], []
 BASENAME = None
 PROXIMITY_LEVEL = None
+MINIMUM_DISTANCE = None
 LOGGER_MODE = None
 LOGGER_NAME = None
 LOGGER_PATH = None
@@ -28,6 +29,7 @@ def main(args: OmegaConf):
     global LOGGER_NAME
     global LOGGER_PATH
     global PROXIMITY_LEVEL
+    global MINIMUM_DISTANCE
     
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
@@ -40,7 +42,10 @@ def main(args: OmegaConf):
         if (args.proximity_level == 0):
             LOGGER_MODE = 'w'
     else:
-        LOGGER_PATH = f"logs/slide_level/{args.dataset}/standard_exp"    
+        LOGGER_PATH = f"logs/slide_level/{args.dataset}/standard_exp"   
+
+    if (args.positive_pair_sampling.lower() == 'closest_patch'):
+        MINIMUM_DISTANCE = args.minimum_distance     
 
     Path(LOGGER_PATH).mkdir(exist_ok=True, parents=True)
     print(f"Logger path: {LOGGER_PATH}. Logger mode: {LOGGER_MODE}")
@@ -116,7 +121,10 @@ if __name__=='__main__':
         
     with open(f"{LOGGER_PATH}/{LOGGER_NAME}.txt", LOGGER_MODE) as logger:
         print(f"{BASENAME}", file=logger)
-        print(f"Level: {PROXIMITY_LEVEL}", file=logger)   
+        if PROXIMITY_LEVEL is not None:
+            print(f"Level: {PROXIMITY_LEVEL}", file=logger)   
+        if MINIMUM_DISTANCE is not None:
+            print(f"Minimum Distance: {MINIMUM_DISTANCE}", file=logger)  
         print(f"All test acc: {TEST_ACC}", file=logger)
         print(f"All test auroc: {TEST_AUC}", file=logger)     
         print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "

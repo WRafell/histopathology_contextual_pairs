@@ -22,6 +22,7 @@ def main(args: OmegaConf) -> None:
         'closest_patch', 
         'random_neighbor', 
         'region',
+        'different_slide_same_label',
         'different_normal_slide',
         'preselected_positive_pairs']
     
@@ -78,6 +79,7 @@ def main(args: OmegaConf) -> None:
         from src.utils_positive_pairs import ContextPositivePairs
         transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
+        print(f"Selecting closest patch as Context Pair. Minimum distance: {args.minimum_distance}")
         positive_pairs_sampling_method = ContextPositivePairs(minimum_distance=args.minimum_distance).closest_patch_positive_pairs
 
     elif pps == 'random_neighbor':
@@ -97,7 +99,16 @@ def main(args: OmegaConf) -> None:
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         normal_label = get_normal_label(dataset=dataset_name)
         positive_pairs_sampling_method = ContextPositivePairs(normal_label=normal_label).diff_normal_slide_positive_pairs
-    
+
+    elif pps == 'different_slide_same_label':
+        from src.utils_data import get_normal_label
+        from src.utils_transforms import ContextSamplingTransforms
+        from src.utils_self_supervised import TwoViewsDataset
+        from src.utils_positive_pairs import ContextPositivePairs
+        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
+        dataset = TwoViewsDataset(data=data, transforms=transforms)
+        positive_pairs_sampling_method = ContextPositivePairs().diff_slide_same_label_positive_pairs
+
     elif pps == 'region':
         # from src.utils_transforms import RegionTransforms 
         # from src.utils_self_supervised import TwoViewsDataset       

@@ -6,7 +6,7 @@ import lightning as L
     
 # 'img_path', 'patch_label', 'slide_label', 'slide_name', 'coord'
 class TwoViewsDataset(torch.utils.data.Dataset):
-    def __init__(self, data, transforms):
+    def __init__(self, data: list, transforms: Callable):
         super().__init__()
         self.img_paths = [x[0] for x in data]
         self.slide_names = [x[1] for x in data]
@@ -27,9 +27,9 @@ class TwoViewsDataset(torch.utils.data.Dataset):
         coord = self.coords[idx]
         with open(img_path, 'rb') as f:
             img = Image.open(f).convert('RGB')
-        y1, y2 = self.transforms(img)
-
-        return (y1, y2), img_path, slide_name, coord, slide_label
+    
+        views = self.transforms(img)
+        return views, img_path, slide_name, coord, slide_label
     
 
 class PreselectedPairsDataset(torch.utils.data.Dataset):
@@ -109,30 +109,6 @@ class SSLModule(L.LightningModule):
     def get_encoder(self):
         return self.ssl_model.get_encoder()
     
-
-# class DINOSSLModule(L.LightningModule):
-#     '''
-#     Mostly copy-paste from:
-#     https://github.com/kwea123/dino_pl/blob/master/train.py
-#     '''
-#     def __init__(
-#             self, 
-#             student,
-#             teacher,
-#             loss_function):
-#         super().__init__()
-
-#         self.automatic_optimization = False
-#         self.student = student
-#         self.teacher = teacher
-#         self.loss_function = loss_function
-
-#         self.teacher.load_state_dict(self.student.state_dict())
-#         for p in self.teacher.parameters():
-#             p.requires_grad = False
-
-        
-
 
 
 
