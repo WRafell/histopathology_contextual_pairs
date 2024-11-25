@@ -34,8 +34,7 @@ def main(args: OmegaConf):
     new_train_df = preselect_positive_pairs(
         all_train_df=train_df,
         num_patches=num_patches,
-        proximity_levels=proximity_levels,
-        same_patch_ratio=0.1)
+        proximity_levels=proximity_levels)
     new_train_df.to_csv(
         f"./csv/preselected_dataset={args.dataset.lower()}_num-patches={num_patches}_seed={args.random_seed}.csv",
         index=False)

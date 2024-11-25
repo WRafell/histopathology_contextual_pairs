@@ -21,6 +21,7 @@ proximity_level: 0
 
 # Preselected Pairs
 num_preselected_patches: 100000
+remove_lonely_patches: false
 
 
 # Model related

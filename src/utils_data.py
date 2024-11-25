@@ -26,8 +26,7 @@ def shuffle_train_data(
 def preselect_positive_pairs(
         all_train_df: pd.DataFrame, 
         num_patches: int,
-        proximity_levels: list, 
-        same_patch_ratio: float) -> pd.DataFrame:
+        proximity_levels: list) -> pd.DataFrame:
     
     """
     Preselect positive pairs of patches for a given set of proximity levels.
@@ -36,7 +35,6 @@ def preselect_positive_pairs(
     - all_train_df: DataFrame containing all available patches, which will be used for proximity selection.
     - num_patches: Number of patches to sample from all_train_df
     - proximity_levels: List of proximity levels to consider for selecting neighbors.
-    - same_patch_ratio: Float between 0 and 1, determining the probability of selecting the same patch.
 
     Returns:
     - A DataFrame with columns for the pivot patch and its neighbors at each proximity level.
@@ -75,10 +73,6 @@ def preselect_positive_pairs(
                     selected_patch = row.img_path 
                 else:
                     selected_patch = neighbors.sample(n=1).reset_index().img_path[0]
-
-            # Apply same_patch_ratio: With some probability, use the same patch instead of a neighbor
-            if np.random.rand() < same_patch_ratio:
-                selected_patch = row.img_path
 
             new_row.append(selected_patch)
 

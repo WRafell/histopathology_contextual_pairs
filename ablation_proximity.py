@@ -11,6 +11,7 @@ import time
 import torch
 import hydra
 import pickle
+import numpy as np
 import lightning as L
 
 
@@ -38,6 +39,17 @@ def main(args: OmegaConf) -> None:
     preselected_csv_dir = f"./csv/preselected_dataset={dataset_name}_num-patches={num_patches}_seed={args.random_seed}.csv"
     print(f"Preselected samples from: {preselected_csv_dir} with Proximity level: {args.proximity_level}")
     train_df = load_preselected_samples(preselected_csv_dir)
+
+    if args.remove_lonely_patches:
+        # first 4 columns are supposed to be "slide", "coords", "pivot_patch", and "neighbor_level_0" (pivot_patch)
+        proximity_levels = train_df.columns[4:].values   
+        for level in proximity_levels:
+            indeces = np.arange(train_df.shape[0])
+            indeces = indeces[train_df['pivot_patch'] == train_df[level]]
+            train_df.loc[indeces, level] = np.nan
+        train_df = train_df.dropna().reset_index(drop=True)
+        print(f"Removing duplicated positive pairs. Remaining number of pairs: {train_df.shape[0]}")
+
     data = train_df[['pivot_patch', f'neighbor_level_{args.proximity_level}']].values.tolist()
    
 
