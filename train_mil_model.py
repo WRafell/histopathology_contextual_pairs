@@ -1,5 +1,7 @@
 from src.utils_common import set_manual_seed, get_basename
+from src.utils_models import get_backbone
 from omegaconf import OmegaConf
+from datetime import datetime
 from pathlib import Path
 import torch
 import hydra
@@ -52,7 +54,7 @@ def main(args: OmegaConf):
 
 
     """ LOAD DATA """
-    emb_file = f"csv/{args.dataset}_{basename}.csv"
+    emb_file = f"csv/{args.dataset}_{Path(basename).stem}.csv"
     df = pd.read_csv(emb_file)
     train_df = df.query("subset=='train'")
     val_df = df.query("subset=='val'")
@@ -64,10 +66,10 @@ def main(args: OmegaConf):
 
     """ SLIDE CLASSIFICATION """
     # Embedding dimension
-    if args.backbone_name.lower() == 'resnet18':
-        embedding_dim = 512
-    else:
-        raise ValueError(f"{args.backbone_name} or { args.ssl_method.lower()} are not implemented")
+    _, embedding_dim = get_backbone(
+        backbone_name=args.backbone_name,
+        img_size=args.patch_resize)
+
     
     # Number of classes    
     if args.dataset.lower() in ['seedp-stomach', 'seedp-colon']:
@@ -102,7 +104,7 @@ def main(args: OmegaConf):
 
 
 if __name__=='__main__':
-    
+
     num_runs = 5
     for i in range(num_runs):
         print(f"Run: {i+1}/{num_runs}")
@@ -118,9 +120,11 @@ if __name__=='__main__':
     print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "
           f"AUROC: {test_auc_mean:.4f} +/- {test_auc_std:.4f}.")  
 
-        
+    current_time = datetime.now()
+    formatted_time = current_time.strftime("%Y/%m/%d %H:%M:%S") 
     with open(f"{LOGGER_PATH}/{LOGGER_NAME}.txt", LOGGER_MODE) as logger:
         print(f"{BASENAME}", file=logger)
+        print(formatted_time, file=logger)
         if PROXIMITY_LEVEL is not None:
             print(f"Level: {PROXIMITY_LEVEL}", file=logger)   
         if MINIMUM_DISTANCE is not None:

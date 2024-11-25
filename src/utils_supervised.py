@@ -1,4 +1,3 @@
-from torchmetrics.classification import BinaryAccuracy
 from torchmetrics import Accuracy, AUROC
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
@@ -94,13 +93,13 @@ class PatchDataModule(L.LightningDataModule):
         self.test_data = LabeledDataset(dataset=self.dataset['test'], transforms=self.test_transforms)
     
     def train_dataloader(self):
-        return DataLoader(self.train_data, shuffle=True, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(self.train_data, shuffle=True, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
     
     def val_dataloader(self):
-        return DataLoader(self.val_data, shuffle=False, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(self.val_data, shuffle=False, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
     
     def test_dataloader(self):
-        return DataLoader(self.test_data, shuffle=False, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(self.test_data, shuffle=False, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True)
     
 
 

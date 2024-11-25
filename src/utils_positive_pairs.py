@@ -24,6 +24,7 @@ class ContextPositivePairs():
         coords = torch.stack(coords, dim=1).float()
         batch_size = len(slide_names)
 
+        # change to diff_slide_matrix
         same_slide_matrix = torch.tensor([i==j for i in slide_names for j in slide_names]).reshape((batch_size,batch_size))
         
         # Chebyshev distance

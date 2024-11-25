@@ -10,8 +10,8 @@ set -e
 
 
 pps="closest_patch"
-ssl_methods=("barlow_twins" "byol" "simsiam" "vicreg")
-minimum_distances=(0 1 5 10)
+ssl_methods=("barlow_twins" "byol" "vicreg")
+minimum_distances=(1 5 10 0)
 
 
 for ssl_method in "${ssl_methods[@]}"; do

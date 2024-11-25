@@ -1,11 +1,11 @@
 from src.utils_common import set_manual_seed, get_basename
 from src.utils_data import load_dataset
+from src.utils_models import get_backbone
 from src.utils_embeddings import save_embeddings
 from omegaconf import OmegaConf
 from pathlib import Path
 import torch
 import hydra
-import torchvision
 import pandas as pd
 
 
@@ -22,22 +22,11 @@ def main(args: OmegaConf) -> None:
     df: pd.DataFrame = load_dataset(args.dataset.lower())
 
 
-    """ SSL MODEL """
-    if args.backbone_name.lower() == 'resnet18':
-        encoder = torchvision.models.resnet18(weights='ResNet18_Weights.DEFAULT')
-        embedding_dim = encoder.fc.in_features
-        encoder.fc = torch.nn.Identity()
-    else:
-        raise ValueError(f"{args.backbone_name} is not a valid backbone model")
-    
-    # if args.ssl_method.lower() == 'simsiam':
-    #     print("Loading SimSiam encoder")
-    #     from src.ssl_methods.simsiam import SimSiamEncoder
-    #     encoder = SimSiamEncoder(
-    #         backbone=encoder,
-    #         embedding_dim=embedding_dim,
-    #         encoder_dim=args.simsiam.encoder_dim
-    #     )
+    """ LOAD ENCODER """
+    print(f"\nSSL Method: {args.ssl_method} with {args.backbone_name} as backbone")     
+    encoder, _ = get_backbone(
+        backbone_name=args.backbone_name,
+        img_size=args.patch_resize)
     
     encoder_path = f"models/{args.dataset.lower()}/{basename}.pth"
     print(f"Encoder path: {encoder_path}")
@@ -57,7 +46,7 @@ def main(args: OmegaConf) -> None:
         device=args.device)
     
     emd_df = pd.DataFrame(emb_data, columns=['subset', 'emb_path', 'label']) 
-    emd_df.to_csv(f"csv/{args.dataset}_{basename}.csv", index=False)
+    emd_df.to_csv(f"csv/{args.dataset}_{Path(basename).stem}.csv", index=False)
     return
 
 

@@ -9,8 +9,9 @@ set -e
 # SSL Methods: ("barlow_twins" "byol" "simsiam" "vicreg" "dino (soon)")
 
 
-pps_list=("random_neighbor")
-ssl_methods=("barlow_twins")
+pps_list=("baseline" "random_neighbor" "different_slide_same_label" "different_normal_slide")
+ssl_methods=("barlow_twins" "byol" "vicreg")
+dataset="seedp-colon"
 
 
 for ssl_method in "${ssl_methods[@]}"; do
@@ -21,20 +22,20 @@ for ssl_method in "${ssl_methods[@]}"; do
         #     continue
         # fi
 
-        echo "SSL Method: $ssl_method , PPS: $pps"
+        echo "Dataset: $dataset, SSL Method: $ssl_method , PPS: $pps"
 
         echo "Starting SSL model training..." 
-        python train_ssl_model.py positive_pair_sampling=$pps ssl_method=$ssl_method
+        python train_ssl_model.py positive_pair_sampling=$pps ssl_method=$ssl_method dataset=$dataset
         echo "SSL model training complete."
         sleep 1
 
         echo "Generating embeddings..."
-        python generate_embeddings.py positive_pair_sampling=$pps ssl_method=$ssl_method
+        python generate_embeddings.py positive_pair_sampling=$pps ssl_method=$ssl_method dataset=$dataset
         echo "Embeddings generation complete."
         sleep 1
 
         echo "Starting MIL model training..."
-        python train_mil_model.py positive_pair_sampling=$pps ssl_method=$ssl_method
+        python train_mil_model.py positive_pair_sampling=$pps ssl_method=$ssl_method dataset=$dataset
         echo "MIL model training complete."
         sleep 1
     done

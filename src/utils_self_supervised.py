@@ -3,6 +3,18 @@ from PIL import Image
 import torch
 import lightning as L
 
+
+class EncoderWithLinear(torch.nn.Module):
+    def __init__(self, encoder, embedding_dim, num_classes):
+        super(EncoderWithLinear, self).__init__()
+        self.encoder = encoder
+        self.linear = torch.nn.Linear(embedding_dim, num_classes)
+    
+    def forward(self, x):
+        features = self.encoder(x)
+        output = self.linear(features)
+        return output
+
     
 # 'img_path', 'patch_label', 'slide_label', 'slide_name', 'coord'
 class TwoViewsDataset(torch.utils.data.Dataset):
@@ -75,7 +87,6 @@ class SSLModule(L.LightningModule):
         self.step_losses = []
         self.epoch_losses = []
 
-
     def training_step(self, batch, batch_idx):
         view_1, view_2 = self.positive_pairs_sampling_method(batch)
         loss = self.ssl_model(view_1, view_2)       
@@ -83,7 +94,6 @@ class SSLModule(L.LightningModule):
         self.step_losses.append(loss.item())
         self.temp_step_losses.append(loss.item())
         return loss
-
 
     def on_train_epoch_end(self):
         epoch_loss = torch.tensor(self.temp_step_losses).mean()
@@ -104,7 +114,6 @@ class SSLModule(L.LightningModule):
                 "lr_scheduler": self.scheduler}
         else:
             return self.optimizer
-
 
     def get_encoder(self):
         return self.ssl_model.get_encoder()

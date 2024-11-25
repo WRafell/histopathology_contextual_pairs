@@ -25,7 +25,6 @@ class BarlowTwins(torch.nn.Module):
         # normalization for the last layer
         self.bn = torch.nn.BatchNorm1d(sizes[-1], affine=False)
 
-
     def forward(self, view_1, view_2):
         batch_size = view_1.size(0)
         representations_1 = self.projector(self.backbone(view_1))

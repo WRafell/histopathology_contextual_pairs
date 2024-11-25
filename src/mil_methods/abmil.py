@@ -39,13 +39,15 @@ class Attention(nn.Module):
     
 
 class ABMIL():
-    def __init__(self, embedding_dim: int, num_classes: int, learning_rate: float, weight_decay: float, max_epochs: int, device: str):
+    def __init__(self, embedding_dim: int, num_classes: int, learning_rate: float, weight_decay: float, max_epochs: int, device: str, verbose: bool = True):
         self.model = Attention(embedding_dim, num_classes).to(device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, betas=(0.9, 0.999), weight_decay=weight_decay)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=max_epochs)
         self.loss_function = torch.nn.CrossEntropyLoss()
         self.max_epochs = max_epochs
         self.device = device
         self.num_classes = num_classes
+        self.verbose = verbose
         return
     
     def train(self, train_data: list, val_data: list):
@@ -87,6 +89,8 @@ class ABMIL():
             self.train_losses.append(train_loss)
             self.train_acc.append(train_acc)
 
+            self.scheduler.step()
+
             self.model.eval()
             total_inputs = len(val_data)
             running_loss = 0.
@@ -114,6 +118,8 @@ class ABMIL():
                 lowest_val_loss = val_loss
                 best_model = deepcopy(self.model)
 
+            if not self.verbose:
+                continue
             if (epoch%10==0) or (epoch==1) or (epoch+1==self.max_epochs):
                 print(f"{epoch}/{self.max_epochs} Train loss: {train_loss:.4f}. Train acc: {train_acc:.4f} "
                     f"Val loss: {val_loss:.4f}. Val acc: {val_acc:.4f}")

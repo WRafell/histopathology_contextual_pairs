@@ -1,5 +1,7 @@
 *.ipynb
 *.log
+*.txt
+**/__pycache__/
 /.hydra*
 /notebooks
 /ignore

@@ -13,14 +13,14 @@ num_slides_per_batch: 100
 
 
 # Pair sampling
-positive_pair_sampling: randaugmentna
+positive_pair_sampling: closest_patch
 minimum_distance: 10
 normal_label: 2
 proximity_level: 0
 
 
 # Preselected Pairs
-num_preselected_patches: 256000
+num_preselected_patches: 100000
 
 
 # Model related
@@ -36,7 +36,7 @@ devices: [0,1]
 max_epochs: 100
 
 # LARS Optimizer
-use_lars_optimizer: True
+use_lars_optimizer: true
 lars:
     lr: 0
     base_lr: 0.2
@@ -46,7 +46,8 @@ lars:
 
 
 # SSL related
-ssl_method: barlow_twins
+ssl_method: simsiam
+
 barlow_twins:
   projector: 1028-1028-1028
   lambd: 0.0051
@@ -61,16 +62,53 @@ simsiam:
   pred_dim: 512
 
 vicreg:
-    projector_arch: 1028-1028-1028
-    sim_coeff: 25.0
-    std_coeff: 25.0
-    cov_coeff: 1.0
+  projector_arch: 1028-1028-1028
+  sim_coeff: 25.0
+  std_coeff: 25.0
+  cov_coeff: 1.0
+
+dino:
+  # model_parameters
+  architecture: tiny
+  img_size: 112
+  pretrained: false
+  patch_size: 16
+  out_dim: 65536
+  norm_last_layer: true
+  momentum_teacher: 0.996
+  use_bn_in_head: false
+
+  # temperature_teacher_parameters
+  warmup_teacher_temp: 0.04
+  final_teacher_temp: 0.07
+  warmup_teacher_temp_epochs: 30
+
+  # training_optimization_parameters
+  use_fp16: true
+  weight_decay: 0.04
+  weight_decay_end: 0.4
+  clip_grad: 3.0
+  batch_size_per_gpu: 64
+  epochs: 100
+  freeze_last_layer: 1
+  lr: 0.0005
+  warmup_epochs: 10
+  min_lr: 1e-6
+  optimizer: adamw
+  drop_path_rate: 0.1
+
+  # multi_crop_parameters  
+  global_crops_scale: [0.5, 1.0]
+  local_crops_number: 0
+  local_crop_size: 48
+  local_crops_scale: [0.05, 0.5]
+
 
 # MIL related
 mil:
   mil_method: abmil
   learning_rate: 0.001
-  weight_decay: 1e-6
+  weight_decay: 1e-2
   max_epochs: 100
 
 

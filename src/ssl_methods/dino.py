@@ -164,3 +164,4 @@ class DINOLoss(nn.Module):
 
         self.center = self.center * self.center_momentum + \
                       batch_center * (1 - self.center_momentum)
+

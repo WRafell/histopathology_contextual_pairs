@@ -1,5 +1,5 @@
 from src.utils_common import set_manual_seed
-from src.utils_data import preselect_positive_pairs
+from src.utils_data import load_dataset, preselect_positive_pairs
 from omegaconf import OmegaConf
 import hydra
 import random
@@ -16,13 +16,13 @@ def main(args: OmegaConf):
 
     """ LOAD DATASET """
     print(f"\nDataset: {args.dataset}")
-    if args.dataset.lower() == 'camelyon16':
-        from src.utils_data import get_camelyon16
-        df = get_camelyon16()
-    else:
-        raise ValueError(f"{args.dataset} is not a valid dataset")
-    
-      
+    df = load_dataset(args.dataset.lower())
+
+    if isinstance(df.coords[0], str):
+        df['coords'] = [eval(coord) for coord in df.coords]
+
+
+     
     """ SELECT POSITIVE PAIRS BASED ON PROXIMITY """
     # Selecting N patches, where N = batch_size * num_batches
     proximity_levels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25, 30]

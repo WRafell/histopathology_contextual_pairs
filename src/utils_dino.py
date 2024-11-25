@@ -14,12 +14,13 @@ import lightning as L
 
 def get_dino_components(
         num_epochs: int,
-        architecture: str = 'small',
+        img_size: int,
+        architecture: str,
         patch_size: int = 16,
+        local_crops_number: int = 0,
         drop_path_rate: float = 0.1,
         out_dim: int = 65536,
-        norm_last_layer: bool = False,
-        local_crops_number: int = 8,
+        norm_last_layer: bool = False,        
         warmup_teacher_temp: float = 0.04,
         final_teacher_temp: float = 0.07,
         warmup_teacher_temp_epochs: int = 30,
@@ -27,9 +28,10 @@ def get_dino_components(
 
     model = vits_dict[architecture]
     student_backbone = model(
+        img_size=img_size,
         patch_size=patch_size,
         drop_path_rate=drop_path_rate)
-    teacher_backbone = model(patch_size=patch_size)
+    teacher_backbone = model(img_size=img_size, patch_size=patch_size)
 
     if pretrained:
         # Using Pretrained backbone from Lunit
@@ -79,20 +81,21 @@ def cosine_scheduler(
         final_value, 
         epochs, 
         niter_per_ep,
-        warmup_epochs: int = 0, 
-        start_warmup_value: float = 1e-6):
+        warmup_epochs=0, 
+        start_warmup_value=0):
+    
     warmup_schedule = np.array([])
     warmup_iters = warmup_epochs * niter_per_ep
     if warmup_epochs > 0:
         warmup_schedule = np.linspace(start_warmup_value, base_value, warmup_iters)
 
     iters = np.arange(epochs * niter_per_ep - warmup_iters)
-    schedule = final_value + 0.5 * (base_value - final_value) * \
-                             (1 + np.cos(np.pi * iters / len(iters)))
+    schedule = final_value + 0.5 * (base_value - final_value) * (1 + np.cos(np.pi * iters / len(iters)))
 
     schedule = np.concatenate((warmup_schedule, schedule))
     assert len(schedule) == epochs * niter_per_ep
     return schedule
+
 
 
 class DINOSSLModule(L.LightningModule):
@@ -112,11 +115,25 @@ class DINOSSLModule(L.LightningModule):
         self.step_losses = []
         self.epoch_losses = []
 
-        self.hparams = hparams
-        dino_components = get_dino_components(hparams)
-        self.teacher = dino_components['teacher']
-        self.student = dino_components['student']
-        self.loss_function = dino_components['loss_function']
+        # self.hparams = hparams
+        student, teacher, loss_function = get_dino_components(
+            architecture=hparams.architecture,
+            img_size=hparams.img_size,
+            num_epochs=hparams.num_epochs,
+            architecture=hparams.architecture,
+            patch_size=hparams.patch_size,
+            local_crops_number=hparams.local_crops_number,
+            drop_path_rate=hparams.drop_path_rate,
+            out_dim=hparams.out_dim,
+            norm_last_layer=hparams.norm_last_layer,
+            warmup_teacher_temp=hparams.warmup_teacher_temp,
+            final_teacher_temp=hparams.final_teacher_temp,
+            warmup_teacher_temp_epochs=hparams.warmup_teacher_temp_epochs,
+            pretrained=hparams.pretrained)
+        self.student = student
+        self.teacher = teacher
+        self.loss_function = loss_function
+
 
     def configure_optimizers(self):
         regularized, not_regularized = [], []
@@ -134,19 +151,19 @@ class DINOSSLModule(L.LightningModule):
         self.lr = self.hparams.lr * (self.hparams.batch_size * self.hparams.num_gpus/256)
         opt = torch.optim.AdamW(param_groups, self.lr)
 
-        self.lr_sch = cosine_scheduler(
+        self.lr_schedule = cosine_scheduler(
             self.lr, 1e-6, 
             self.hparams.num_epochs, 
             self.hparams.niter_per_ep//self.hparams.num_gpus,
             self.hparams.warmup_epochs)
         # weight decay scheduler
-        self.wd_sch = cosine_scheduler(
-            self.hparams.weight_decay_init, 
+        self.wd_schedule = cosine_scheduler(
+            self.hparams.weight_decay, 
             self.hparams.weight_decay_end,
             self.hparams.num_epochs, 
             self.hparams.niter_per_ep//self.hparams.num_gpus)
         # momentum scheduler
-        self.mm_sch = cosine_scheduler(
+        self.momentum_schedule = cosine_scheduler(
             self.hparams.momentum_teacher, 1.0,
             self.hparams.num_epochs, 
             self.hparams.niter_per_ep//self.hparams.num_gpus)
@@ -155,35 +172,60 @@ class DINOSSLModule(L.LightningModule):
     
     def training_step(self, batch, batch_idx):
 
-        global_views, local_views = self.positive_pairs_sampling_method(batch)
+        ## Handling multiple crops
+        # All crops are passed through the student 
+        # while only the global views are passed through the teacher. 
+        crops = batch[0]
+        _, global_crops_2 = self.positive_pairs_sampling_method(batch)
+
+        # Subtitute second global crop with new pair
+        crops[1] = global_crops_2
+
+        batch_size = batch[4].size(0)  # number of labels
 
         opt = self.optimizers()
+
         # update learning rate, weight decay
         for i, param_group in enumerate(opt.param_groups):
-            param_group['lr'] = self.lr_sch[self.global_step]
+            param_group['lr'] = self.lr_schedule[self.global_step]
             if i == 0: # only the first group is regularized
-                param_group['weight_decay'] = self.wd_sch[self.global_step]
+                param_group['weight_decay'] = self.wd_schedule[self.global_step]
 
-        teacher_output = self.teacher(batch[:2])
-        student_output = self.student(batch)
-        loss = self.loss(student_output, teacher_output, self.current_epoch)
+        student_output = self.student(crops)
+        teacher_output = self.teacher(crops[:2])   # only the 2 global views pass through the teacher
+        loss = self.loss_function(student_output, teacher_output, self.current_epoch)
+
+        self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=batch_size, sync_dist=True)
+        self.temp_step_losses.append(loss.item())
+        self.step_losses.append(loss.item())
 
         opt.zero_grad()
         self.manual_backward(loss)
-        # clip gradient
+
+        # student update
         if self.hparams.clip_grad > 0:
             torch.nn.utils.clip_grad_norm_(self.student.parameters(), self.hparams.clip_grad)
-        # cancel gradient for the first epochs
-        if self.current_epoch < self.hparams.ep_freeze_last_layer:
+        if self.current_epoch < self.hparams.freeze_last_layer:
             for n, p in self.student.named_parameters():
                 if "last_layer" in n:
-                    p.grad = None
+                    p.grad = None        
         opt.step()
 
         # EMA update for the teacher
-        m = self.mm_sch[self.global_step]
-        for ps, pt in zip(self.student.parameters(), self.teacher.parameters()):
-            pt.data.mul_(m).add_((1-m)*ps.data)
+        m = self.momentum_schedule[self.global_step]
+        for param_q, param_k in zip(self.student.parameters(), self.teacher.parameters()):
+            param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
+
+    def on_train_epoch_end(self):
+        epoch_loss = torch.tensor(self.temp_step_losses).mean()
+        self.epoch_losses.append(epoch_loss.item())
+        self.temp_step_losses = []
+
+        encoder = self.get_encoder()
+        torch.save(encoder.state_dict(), self.saving_path)
+
+    def get_encoder(self):
+        return self.student.backbone
 
 
 

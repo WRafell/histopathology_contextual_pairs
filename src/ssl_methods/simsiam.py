@@ -12,11 +12,11 @@ class SimSiamEncoder(nn.Module):
             nn.Linear(embedding_dim, embedding_dim, bias=False),
             nn.BatchNorm1d(embedding_dim),
             nn.ReLU(inplace=True),
-            # nn.Linear(embedding_dim, embedding_dim, bias=False),
-            # nn.BatchNorm1d(embedding_dim),
-            # nn.ReLU(inplace=True),
+            nn.Linear(embedding_dim, embedding_dim, bias=False),
+            nn.BatchNorm1d(embedding_dim),
+            nn.ReLU(inplace=True),
             nn.Linear(embedding_dim, encoder_dim, bias=False),
-            nn.BatchNorm1d(encoder_dim, affine=False)
+            # nn.BatchNorm1d(encoder_dim, affine=False)
         )
     def forward(self, x):
         return self.projection(self.backbone(x))

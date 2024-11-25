@@ -3,8 +3,9 @@ from functools import partial
 from torch import nn
 
 
-def vit_tiny(patch_size=16, **kwargs):
+def vit_tiny(img_size, patch_size=16, **kwargs):
     model = VisionTransformer(
+        img_size=img_size,
         patch_size=patch_size, 
         num_classes=0,
         embed_dim=192, 
@@ -16,8 +17,9 @@ def vit_tiny(patch_size=16, **kwargs):
     return model
 
 
-def vit_small(patch_size=16, **kwargs):
+def vit_small(img_size, patch_size=16, **kwargs):
     model = VisionTransformer(
+        img_size=img_size,
         patch_size=patch_size, 
         num_classes=0,
         embed_dim=384, 
@@ -29,8 +31,9 @@ def vit_small(patch_size=16, **kwargs):
     return model
 
 
-def vit_base(patch_size=16, **kwargs):
+def vit_base(img_size, patch_size=16, **kwargs):
     model = VisionTransformer(
+        img_size=img_size,
         patch_size=patch_size, 
         num_classes=0,
         embed_dim=768, 
@@ -42,6 +45,6 @@ def vit_base(patch_size=16, **kwargs):
     return model
 
 
-vits_dict = {'tiny': vit_tiny,
-             'small': vit_small,
-             'base': vit_base}
+vits_dict = {'vit_tiny': vit_tiny,
+             'vit_small': vit_small,
+             'vit_base': vit_base}

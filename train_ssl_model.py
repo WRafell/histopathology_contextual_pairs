@@ -1,13 +1,13 @@
 from src.utils_common import set_manual_seed, get_basename
-from src.utils_self_supervised import SSLModule
-from omegaconf import OmegaConf
+from src.utils_models import get_backbone
+from src.utils_self_supervised import SSLModule 
 from lightning.pytorch.callbacks import RichProgressBar
+from omegaconf import OmegaConf
 from pathlib import Path
 import time
 import torch
 import hydra
 import pickle
-import torchvision
 import lightning as L
 
 
@@ -17,6 +17,9 @@ torch.set_float32_matmul_precision('high')
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(args: OmegaConf) -> None:
 
+    pps = args.positive_pair_sampling
+    print(f"Positive pair sampling: {pps}")
+
     assert args.positive_pair_sampling in [
         'baseline', 
         'closest_patch', 
@@ -24,8 +27,8 @@ def main(args: OmegaConf) -> None:
         'region',
         'different_slide_same_label',
         'different_normal_slide',
-        'preselected_positive_pairs']
-    
+        'preselected_positive_pairs'], f"{pps} is not implemented"   
+
     set_manual_seed(random_seed=args.random_seed)
 
     basename = get_basename(args=args)
@@ -61,51 +64,50 @@ def main(args: OmegaConf) -> None:
             num_slides_per_batch=args.num_slides_per_batch)
         data = shuffled_train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
 
-
-    """ LOAD TRANSFORMS AND POSITIVE PAIR SAMPLIN METHOD """
-    pps = args.positive_pair_sampling
-    print(f"Positive pair sampling: {pps}")
-    if pps == 'baseline':
+    
+    """ LOAD TRANSFORMS """
+    if pps in ['closest_patch', 'random_neighbor', 'different_normal_slide', 'different_slide_same_label']:
+        from src.utils_transforms import ContextSamplingTransforms
+        transforms = ContextSamplingTransforms(resize_int=args.patch_resize)
+    elif pps in ['baseline']:
         from src.utils_transforms import StandardTransforms 
+        transforms = StandardTransforms(resize_int=args.patch_resize)
+    else:
+        f"Transform for {pps} is not implemented" 
+
+
+    """ POSITIVE PAIR SAMPLIN METHOD """
+    if pps == 'baseline':
         from src.utils_self_supervised import TwoViewsDataset       
         from src.utils_positive_pairs import two_distortion_positive_pairs
-        transforms = StandardTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         positive_pairs_sampling_method = two_distortion_positive_pairs
 
     elif pps == 'closest_patch':
-        from src.utils_transforms import ContextSamplingTransforms
         from src.utils_self_supervised import TwoViewsDataset
         from src.utils_positive_pairs import ContextPositivePairs
-        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         print(f"Selecting closest patch as Context Pair. Minimum distance: {args.minimum_distance}")
         positive_pairs_sampling_method = ContextPositivePairs(minimum_distance=args.minimum_distance).closest_patch_positive_pairs
 
     elif pps == 'random_neighbor':
-        from src.utils_transforms import ContextSamplingTransforms
         from src.utils_self_supervised import TwoViewsDataset
         from src.utils_positive_pairs import ContextPositivePairs
-        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         positive_pairs_sampling_method = ContextPositivePairs().random_patch_positive_pairs
 
     elif pps == 'different_normal_slide':
         from src.utils_data import get_normal_label
-        from src.utils_transforms import ContextSamplingTransforms
         from src.utils_self_supervised import TwoViewsDataset
         from src.utils_positive_pairs import ContextPositivePairs
-        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         normal_label = get_normal_label(dataset=dataset_name)
         positive_pairs_sampling_method = ContextPositivePairs(normal_label=normal_label).diff_normal_slide_positive_pairs
 
     elif pps == 'different_slide_same_label':
         from src.utils_data import get_normal_label
-        from src.utils_transforms import ContextSamplingTransforms
         from src.utils_self_supervised import TwoViewsDataset
         from src.utils_positive_pairs import ContextPositivePairs
-        transforms = ContextSamplingTransforms(resize_int=args.patch_resize).two_views_transform
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         positive_pairs_sampling_method = ContextPositivePairs().diff_slide_same_label_positive_pairs
 
@@ -153,12 +155,9 @@ def main(args: OmegaConf) -> None:
     """ SSL MODEL """
     # BACKBONE
     print(f"\nSSL Method: {args.ssl_method} with {args.backbone_name} as backbone")     
-    if args.backbone_name.lower() == 'resnet18':
-        backbone = torchvision.models.resnet18(weights='ResNet18_Weights.DEFAULT')
-        embedding_dim = backbone.fc.in_features
-        backbone.fc = torch.nn.Identity()
-    else:
-        raise ValueError(f"{args.backbone_name} is not a valid backbone model")
+    backbone, embedding_dim = get_backbone(
+        backbone_name=args.backbone_name,
+        img_size=args.patch_resize)
     
       
     # SSL METHOD
@@ -169,6 +168,7 @@ def main(args: OmegaConf) -> None:
             embedding_dim=embedding_dim,
             projector=args.barlow_twins.projector,
             lambd=args.barlow_twins.lambd)
+        
     elif args.ssl_method.lower() == 'byol':
         from src.ssl_methods.byol import BYOL
         ssl_model = BYOL(
@@ -178,6 +178,7 @@ def main(args: OmegaConf) -> None:
             projector_dim=args.byol.projector_dim,
             momentum=args.byol.momentum)
         ssl_model._initialize_target_network()
+
     elif args.ssl_method.lower() == 'simsiam':
         from src.ssl_methods.simsiam import SimSiam
         ssl_model = SimSiam(
@@ -185,6 +186,7 @@ def main(args: OmegaConf) -> None:
             embedding_dim=embedding_dim,
             encoder_dim=args.simsiam.encoder_dim,
             pred_dim=args.simsiam.pred_dim)
+        
     elif args.ssl_method.lower() == 'vicreg':
         from src.ssl_methods.vicreg import VICReg
         ssl_model = VICReg(
@@ -194,10 +196,16 @@ def main(args: OmegaConf) -> None:
             sim_coeff=args.vicreg.sim_coeff,
             std_coeff=args.vicreg.std_coeff,
             cov_coeff=args.vicreg.cov_coeff)
+        
+    elif args.ssl_method.lower() == 'dino':
+        raise ValueError(f"{args.ssl_method.lower()} is not implemented yet")
+    
     else:
         raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
     
 
+    """ SSL Module """
+    callbacks = [RichProgressBar(leave=False)]   
     if args.use_lars_optimizer:
         print("Using LARS optimizer")
         from src.lars import LARS, AdjustLearningRate, exclude_bias_and_norm
@@ -214,14 +222,12 @@ def main(args: OmegaConf) -> None:
             base_lr=args.lars.base_lr,
             num_batches=len(train_loader)
         )
-        callbacks = [RichProgressBar(leave=False), adjust_learning_rate]
+        callbacks.append(adjust_learning_rate)
     else:
         optimizer: torch.optim = hydra.utils.instantiate(args.optimizer, params=ssl_model.parameters())
         scheduler: torch.optim.lr_scheduler = hydra.utils.instantiate(args.scheduler, optimizer=optimizer, T_max=args.max_epochs)
-        callbacks = [RichProgressBar(leave=False)]
-
+    
     use_moving_average: bool = args.ssl_method.lower() in ['byol']  
-
     ssl_module = SSLModule(
         ssl_model=ssl_model,
         positive_pairs_sampling_method=positive_pairs_sampling_method,
