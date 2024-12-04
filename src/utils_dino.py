@@ -120,7 +120,6 @@ class DINOSSLModule(L.LightningModule):
             architecture=hparams.architecture,
             img_size=hparams.img_size,
             num_epochs=hparams.num_epochs,
-            architecture=hparams.architecture,
             patch_size=hparams.patch_size,
             local_crops_number=hparams.local_crops_number,
             drop_path_rate=hparams.drop_path_rate,

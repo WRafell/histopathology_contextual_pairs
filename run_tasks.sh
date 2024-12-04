@@ -9,9 +9,10 @@ set -e
 # SSL Methods: ("barlow_twins" "byol" "simsiam" "vicreg" "dino (soon)")
 
 
+dataset="seedp-stomach"
 pps_list=("baseline" "random_neighbor" "different_slide_same_label" "different_normal_slide")
-ssl_methods=("barlow_twins" "byol" "vicreg")
-dataset="seedp-colon"
+ssl_methods=("dino")
+pps_list=("baseline")
 
 
 for ssl_method in "${ssl_methods[@]}"; do

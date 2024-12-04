@@ -1,7 +1,6 @@
 from src.utils_common import set_manual_seed, get_basename
 from src.utils_data import load_dataset, shuffle_train_data
 from src.utils_models import get_backbone
-from src.utils_self_supervised import SSLModule 
 from lightning.pytorch.callbacks import RichProgressBar
 from omegaconf import OmegaConf
 from pathlib import Path
@@ -55,12 +54,13 @@ def main(args: OmegaConf) -> None:
 
     
     """ LOAD TRANSFORMS """
+    img_size = args.patch_resize if args.ssl_method.lower() != 'dino' else args.dino.img_size
     if pps in ['closest_patch', 'random_neighbor', 'different_normal_slide', 'different_slide_same_label']:
         from src.utils_transforms import ContextSamplingTransforms
-        transforms = ContextSamplingTransforms(resize_int=args.patch_resize)
+        transforms = ContextSamplingTransforms(resize_int=img_size)
     elif pps in ['baseline']:
         from src.utils_transforms import StandardTransforms 
-        transforms = StandardTransforms(resize_int=args.patch_resize)
+        transforms = StandardTransforms(resize_int=img_size)
     else:
         f"Transform for {pps} is not implemented" 
 
@@ -115,24 +115,13 @@ def main(args: OmegaConf) -> None:
     else:
         raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
     
-     
-    """ DATALOADER """
-    train_loader = torch.utils.data.DataLoader(
-        dataset=dataset, 
-        batch_size=args.batch_size, 
-        shuffle=False, 
-        num_workers=args.num_workers,
-        pin_memory=True)
-    _ = next(iter(train_loader))
-    print("Data loaded")
-
 
     """ SSL MODEL """
     # BACKBONE
     print(f"\nSSL Method: {args.ssl_method} with {args.backbone_name} as backbone")     
     backbone, embedding_dim = get_backbone(
         backbone_name=args.backbone_name,
-        img_size=args.patch_resize)
+        img_size=img_size)
     
       
     # SSL METHOD
@@ -173,7 +162,7 @@ def main(args: OmegaConf) -> None:
             cov_coeff=args.vicreg.cov_coeff)
         
     elif args.ssl_method.lower() == 'dino':
-        raise ValueError(f"{args.ssl_method.lower()} is not implemented yet")
+        print("Implementing DINO")
     
     else:
         raise ValueError(f"{args.ssl_method} is not a valid ssl method") 
@@ -181,35 +170,83 @@ def main(args: OmegaConf) -> None:
 
     """ SSL Module """
     callbacks = [RichProgressBar(leave=False)]   
-    if args.use_lars_optimizer:
-        print("Using LARS optimizer")
-        from src.lars import LARS, AdjustLearningRate, exclude_bias_and_norm
-        optimizer: torch.optim = LARS(
-            params=ssl_model.parameters(),
-            lr=args.lars.lr,
-            weight_decay=args.lars.weight_decay,
-            weight_decay_filter=exclude_bias_and_norm,
-            lars_adaptation_filter=exclude_bias_and_norm)
-        scheduler = None
-        adjust_learning_rate = AdjustLearningRate(
-            max_epochs=args.max_epochs,
-            batch_size=args.batch_size,
-            base_lr=args.lars.base_lr,
-            num_batches=len(train_loader)
-        )
-        callbacks.append(adjust_learning_rate)
+
+    if args.ssl_method.lower() != 'dino':
+        from src.utils_self_supervised import SSLModule 
+
+        train_loader = torch.utils.data.DataLoader(
+            dataset=dataset, 
+            batch_size=args.batch_size, 
+            shuffle=False, 
+            num_workers=args.num_workers,
+            pin_memory=True)
+        _ = next(iter(train_loader))
+        print("Data loaded")
+
+        if args.use_lars_optimizer:
+            print("Using LARS optimizer")
+            from src.lars import LARS, AdjustLearningRate, exclude_bias_and_norm
+            optimizer: torch.optim = LARS(
+                params=ssl_model.parameters(),
+                lr=args.lars.lr,
+                weight_decay=args.lars.weight_decay,
+                weight_decay_filter=exclude_bias_and_norm,
+                lars_adaptation_filter=exclude_bias_and_norm)
+            scheduler = None
+            adjust_learning_rate = AdjustLearningRate(
+                max_epochs=args.max_epochs,
+                batch_size=args.batch_size,
+                base_lr=args.lars.base_lr,
+                num_batches=len(train_loader)
+            )
+            callbacks.append(adjust_learning_rate)
+        else:
+            optimizer: torch.optim = hydra.utils.instantiate(args.optimizer, params=ssl_model.parameters())
+            scheduler: torch.optim.lr_scheduler = hydra.utils.instantiate(
+                args.scheduler, 
+                optimizer=optimizer, 
+                T_max=args.max_epochs)
+        
+        use_moving_average: bool = args.ssl_method.lower() in ['byol']  
+        ssl_module = SSLModule(
+            ssl_model=ssl_model,
+            positive_pairs_sampling_method=positive_pairs_sampling_method,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            saving_path=saving_path,
+            use_moving_average=use_moving_average)
+        
     else:
-        optimizer: torch.optim = hydra.utils.instantiate(args.optimizer, params=ssl_model.parameters())
-        scheduler: torch.optim.lr_scheduler = hydra.utils.instantiate(args.scheduler, optimizer=optimizer, T_max=args.max_epochs)
-    
-    use_moving_average: bool = args.ssl_method.lower() in ['byol']  
-    ssl_module = SSLModule(
-        ssl_model=ssl_model,
-        positive_pairs_sampling_method=positive_pairs_sampling_method,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        saving_path=saving_path,
-        use_moving_average=use_moving_average)
+        # DINO implementation
+        print("Loading DINO Module")
+
+        from src.utils_dino import DINOSSLModule
+        from omegaconf import OmegaConf, open_dict
+
+        hparams = args.dino
+        OmegaConf.set_struct(hparams, True)
+        with open_dict(hparams):
+            hparams.batch_size = 512  
+            hparams.num_epochs = args.max_epochs
+            hparams.num_workers = args.num_workers  
+            hparams.num_gpus = len(args.devices)
+
+        train_loader = torch.utils.data.DataLoader(
+            dataset=dataset, 
+            batch_size=hparams.batch_size, 
+            shuffle=False, 
+            num_workers=hparams.num_workers,
+            pin_memory=True)
+        _ = next(iter(train_loader))
+        print("Data loaded")
+
+        with open_dict(hparams):
+            hparams.niter_per_ep = len(train_loader)  
+
+        ssl_module = DINOSSLModule(
+            positive_pairs_sampling_method=positive_pairs_sampling_method,
+            saving_path=saving_path,
+            hparams=hparams)
 
 
     """ TRAINING """

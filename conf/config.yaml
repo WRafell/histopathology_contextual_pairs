@@ -70,6 +70,7 @@ vicreg:
 dino:
   # model_parameters
   architecture: tiny
+  batch_size: 1024
   img_size: 112
   pretrained: false
   patch_size: 16

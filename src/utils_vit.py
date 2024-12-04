@@ -45,6 +45,7 @@ def vit_base(img_size, patch_size=16, **kwargs):
     return model
 
 
-vits_dict = {'vit_tiny': vit_tiny,
-             'vit_small': vit_small,
-             'vit_base': vit_base}
+vits_dict = {
+    'tiny': vit_tiny,
+    'small': vit_small,
+    'base': vit_base}
