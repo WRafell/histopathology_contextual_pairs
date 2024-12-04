@@ -1,4 +1,5 @@
 from src.utils_common import set_manual_seed, get_basename
+from src.utils_data import load_dataset, shuffle_train_data
 from src.utils_models import get_backbone
 from src.utils_self_supervised import SSLModule 
 from lightning.pytorch.callbacks import RichProgressBar
@@ -41,28 +42,16 @@ def main(args: OmegaConf) -> None:
     dataset_name = args.dataset.lower()
     assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon'], f"{dataset_name} is not a valid dataset"
     print(f"\nDataset: {dataset_name}")
-
-    preselected_samples = args.positive_pair_sampling == 'preselected_positive_pairs'
-    if preselected_samples:
-        from src.utils_data import load_preselected_samples
-        from src.utils_self_supervised import PreselectedPairsDataset
-        # num_patches = int(args.batch_size * args.num_batches)
-        num_patches = args.num_preselected_patches
-        preselected_csv_dir = f"./csv/preselected_dataset={dataset_name}_num-patches={num_patches}_seed={args.random_seed}.csv"
-        print(f"Preselected samples from: {preselected_csv_dir} with Proximity level: {args.proximity_level}")
-        train_df = load_preselected_samples(preselected_csv_dir)
-        data = train_df[['pivot_patch', f'neighbor_level_{args.proximity_level}']].values.tolist()
-    else:
-        from src.utils_data import load_dataset, shuffle_train_data
-        df = load_dataset(dataset_name)   
-        train_df = df.query("subset=='train'")
-        shuffled_train_df = shuffle_train_data(
-            train_df=train_df,
-            dataset_name=args.dataset.lower(),
-            batch_size=args.batch_size,
-            num_batches=args.num_batches,
-            num_slides_per_batch=args.num_slides_per_batch)
-        data = shuffled_train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
+    
+    df = load_dataset(dataset_name)   
+    train_df = df.query("subset=='train'")
+    shuffled_train_df = shuffle_train_data(
+        train_df=train_df,
+        dataset_name=args.dataset.lower(),
+        batch_size=args.batch_size,
+        num_batches=args.num_batches,
+        num_slides_per_batch=args.num_slides_per_batch)
+    data = shuffled_train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
 
     
     """ LOAD TRANSFORMS """
@@ -122,20 +111,6 @@ def main(args: OmegaConf) -> None:
         # TO BE IMPLEMENTED PROPERLY
 
         raise ValueError(f"{args.positive_pair_sampling} is not implemented yet")
-
-    elif pps == 'preselected_positive_pairs':
-        from src.utils_self_supervised import PreselectedPairsDataset
-        from src.utils_positive_pairs import two_distortion_positive_pairs        
-        if args.proximity_level == 0:
-            from src.utils_transforms import StandardTransforms 
-            transforms_pivot = StandardTransforms(resize_int=args.patch_resize).train_transforms
-            transforms_neighbor = StandardTransforms(resize_int=args.patch_resize).train_transforms_prime
-        else:
-            from src.utils_transforms import ContextSamplingTransforms
-            transforms_pivot = ContextSamplingTransforms(resize_int=args.patch_resize).train_transforms
-            transforms_neighbor = ContextSamplingTransforms(resize_int=args.patch_resize).train_transforms
-        dataset = PreselectedPairsDataset(data=data, transforms_pivot=transforms_pivot, transforms_neighbor=transforms_neighbor)
-        positive_pairs_sampling_method = two_distortion_positive_pairs
 
     else:
         raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
