@@ -40,8 +40,9 @@ def main(args: OmegaConf) -> None:
     print(f"Preselected samples from: {preselected_csv_dir} with Proximity level: {args.proximity_level}")
     train_df = load_preselected_samples(preselected_csv_dir)
 
-    if args.remove_lonely_patches:
+    if ('lonely' in args.positive_pair_sampling.lower()):
         # first 4 columns are supposed to be "slide", "coords", "pivot_patch", and "neighbor_level_0" (pivot_patch)
+        # train_df = train_df[train_df.columns[:-2]]
         proximity_levels = train_df.columns[4:].values   
         for level in proximity_levels:
             indeces = np.arange(train_df.shape[0])
@@ -64,7 +65,7 @@ def main(args: OmegaConf) -> None:
     train_loader = torch.utils.data.DataLoader(
         dataset=dataset, 
         batch_size=args.batch_size, 
-        shuffle=False, 
+        shuffle=True, 
         num_workers=args.num_workers,
         pin_memory=True)
     _ = next(iter(train_loader))
@@ -173,9 +174,9 @@ def main(args: OmegaConf) -> None:
         'step_losses': ssl_module.step_losses,
         'epoch_losses': ssl_module.epoch_losses
     }
-    losses_dir = f"local/ssl_losses/{dataset_name}"
-    Path(losses_dir).mkdir(exist_ok=True, parents=True)
-    with open(f"{losses_dir}/{basename}.pkl", 'wb') as f:
+    losses_path = f"local/ssl_losses/{dataset_name}/{basename}"
+    Path(losses_path).parents[0].mkdir(exist_ok=True, parents=True)
+    with open(f"{losses_path}.pkl", 'wb') as f:
         pickle.dump(all_losses, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     elapsed_time = time.perf_counter() - start_time

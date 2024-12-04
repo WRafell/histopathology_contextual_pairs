@@ -3,7 +3,7 @@ device: cuda:0
 
 
 # Data related
-dataset: seedp-stomach
+dataset: seedp-colon
 shuffle_train: True
 patch_resize: 64
 batch_size: 2048
@@ -21,7 +21,6 @@ proximity_level: 0
 
 # Preselected Pairs
 num_preselected_patches: 100000
-remove_lonely_patches: false
 
 
 # Model related
@@ -47,7 +46,7 @@ lars:
 
 
 # SSL related
-ssl_method: simsiam
+ssl_method: barlow_twins
 
 barlow_twins:
   projector: 1028-1028-1028
@@ -111,6 +110,16 @@ mil:
   learning_rate: 0.001
   weight_decay: 1e-2
   max_epochs: 100
+
+
+# Supervised Learning
+supervised:
+  train_baseline: false
+  num_runs: 3
+  learning_rate: 0.01
+  weight_decay: 1e-6
+  max_epochs: 50
+  
 
 
 

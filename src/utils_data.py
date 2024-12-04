@@ -10,16 +10,18 @@ def shuffle_train_data(
         dataset_name: str,
         batch_size: int, 
         num_batches: int, 
-        num_slides_per_batch: int) -> pd.DataFrame:
+        num_slides_per_batch: int,
+        save_csv: bool = False) -> pd.DataFrame:
     print("Manually shuffling training data")
     slides = train_df.slide.unique().tolist()
     new_train_df = None
-    for i in tqdm(range(num_batches)):
+    for i in tqdm(range(num_batches), leave=False):
         random_slides = random.sample(slides, num_slides_per_batch)
         subdf = train_df.query(f"slide in {random_slides}").sample(n=batch_size)
         subdf = subdf.sample(n=batch_size)
         new_train_df = pd.concat([new_train_df, subdf], axis=0) if new_train_df is not None else subdf
-    new_train_df.to_csv(f"csv/shuffled_{dataset_name}.csv", index=False)
+    if save_csv:
+        new_train_df.to_csv(f"csv/shuffled_{dataset_name}.csv", index=False)
     return new_train_df
 
 

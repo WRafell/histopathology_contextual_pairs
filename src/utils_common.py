@@ -12,7 +12,7 @@ def set_manual_seed(random_seed: int):
 
 def get_basename(args: OmegaConf):
 
-    preselected_samples: bool = args.positive_pair_sampling == 'preselected_positive_pairs'
+    preselected_samples: bool = 'preselected_positive_pairs' in args.positive_pair_sampling
     proximity_patch: bool = args.positive_pair_sampling == 'closest_patch'
     dataset: str = args.dataset.lower()
     

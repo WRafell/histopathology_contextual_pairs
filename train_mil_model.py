@@ -38,11 +38,9 @@ def main(args: OmegaConf):
     BASENAME = basename
     LOGGER_MODE = 'a'
     LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"   
-    if (args.positive_pair_sampling.lower() == 'preselected_positive_pairs'):
+    if ('preselected_positive_pairs' in args.positive_pair_sampling.lower()):
         LOGGER_PATH = f"logs/slide_level/{args.dataset}/proximity_ablation"
         PROXIMITY_LEVEL = args.proximity_level
-        if (args.proximity_level == 0):
-            LOGGER_MODE = 'w'
     else:
         LOGGER_PATH = f"logs/slide_level/{args.dataset}/standard_exp"   
 
