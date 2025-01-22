@@ -11,7 +11,7 @@ def shuffle_train_data(
         batch_size: int, 
         num_batches: int, 
         num_slides_per_batch: int,
-        save_csv: bool = False) -> pd.DataFrame:
+        save_csv: bool = True) -> pd.DataFrame:
     print("Manually shuffling training data")
     slides = train_df.slide.unique().tolist()
     new_train_df = None
@@ -120,6 +120,10 @@ def get_seedp_stomach():
 def get_seedp_colon():
     return pd.read_csv("csv/seedp-colon_data.csv")
 
+def get_tcga():
+    return pd.read_csv("csv/tcga_data.csv")
+
+
 
 def load_dataset(dataset: str) -> pd.DataFrame:
     if dataset == 'camelyon16':
@@ -128,6 +132,8 @@ def load_dataset(dataset: str) -> pd.DataFrame:
         return get_seedp_stomach()
     elif dataset == 'seedp-colon':
         return get_seedp_colon()
+    elif dataset == 'tcga':
+        return get_tcga()
     else:
         raise ValueError(f"{dataset} is not a valid dataset")
     
@@ -143,7 +149,7 @@ def get_normal_label(dataset: str) -> int:
     elif dataset in ['seedp-stomach', 'seedp-colon']:
         return 2
     else:
-        raise ValueError(f"{dataset} is not a valid dataset")
+        return None
 
 
 

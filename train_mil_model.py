@@ -63,16 +63,26 @@ def main(args: OmegaConf):
 
 
     """ SLIDE CLASSIFICATION """
-    # Embedding dimension
-    _, embedding_dim = get_backbone(
-        backbone_name=args.backbone_name,
-        img_size=args.patch_resize)
+    if args.ssl_method.lower() != 'dino':
+        # Embedding dimension
+        _, embedding_dim = get_backbone(
+            backbone_name=args.backbone_name,
+            img_size=args.patch_resize)
+        
+    else:
+        from src.utils_vit import vits_dict 
+        model =  vits_dict[args.dino.architecture]
+        encoder = model(
+            img_size=args.dino.img_size,
+            patch_size=args.dino.patch_size,
+            drop_path_rate=args.dino.drop_path_rate)
+        embedding_dim = encoder.embed_dim 
 
     
     # Number of classes    
     if args.dataset.lower() in ['seedp-stomach', 'seedp-colon']:
         num_classes = 3
-    elif args.dataset.lower() == 'camelyon16':
+    elif args.dataset.lower() in ['camelyon16', 'tcga']:
         num_classes = 2
     else:
         raise ValueError(f"{args.dataset.lower()} dataset is not implemented")

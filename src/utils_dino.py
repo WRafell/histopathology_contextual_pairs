@@ -186,9 +186,9 @@ class DINOSSLModule(L.LightningModule):
 
         # update learning rate, weight decay
         for i, param_group in enumerate(opt.param_groups):
-            param_group['lr'] = self.lr_schedule[self.global_step]
+            param_group['lr'] = self.lr_schedule[self.global_step-1]
             if i == 0: # only the first group is regularized
-                param_group['weight_decay'] = self.wd_schedule[self.global_step]
+                param_group['weight_decay'] = self.wd_schedule[self.global_step-1]
 
         student_output = self.student(crops)
         teacher_output = self.teacher(crops[:2])   # only the 2 global views pass through the teacher
@@ -211,7 +211,7 @@ class DINOSSLModule(L.LightningModule):
         opt.step()
 
         # EMA update for the teacher
-        m = self.momentum_schedule[self.global_step]
+        m = self.momentum_schedule[self.global_step-1]
         for param_q, param_k in zip(self.student.parameters(), self.teacher.parameters()):
             param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
 

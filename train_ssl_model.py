@@ -1,5 +1,6 @@
 from src.utils_common import set_manual_seed, get_basename
 from src.utils_data import load_dataset, shuffle_train_data
+from src.utils_transforms import StandardTransforms 
 from src.utils_models import get_backbone
 from lightning.pytorch.callbacks import RichProgressBar
 from omegaconf import OmegaConf
@@ -20,6 +21,8 @@ def main(args: OmegaConf) -> None:
     pps = args.positive_pair_sampling
     print(f"Positive pair sampling: {pps}")
 
+    SHUFFLE = False
+
     assert args.positive_pair_sampling in [
         'baseline', 
         'closest_patch', 
@@ -39,30 +42,33 @@ def main(args: OmegaConf) -> None:
 
     """ LOAD DATA """
     dataset_name = args.dataset.lower()
-    assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon'], f"{dataset_name} is not a valid dataset"
+    # assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon', 'tcga'], f"{dataset_name} is not a valid dataset"
     print(f"\nDataset: {dataset_name}")
     
     df = load_dataset(dataset_name)   
     train_df = df.query("subset=='train'")
-    shuffled_train_df = shuffle_train_data(
-        train_df=train_df,
-        dataset_name=args.dataset.lower(),
-        batch_size=args.batch_size,
-        num_batches=args.num_batches,
-        num_slides_per_batch=args.num_slides_per_batch)
-    data = shuffled_train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
+    # shuffled_train_df = shuffle_train_data(
+    #     train_df=train_df,
+    #     dataset_name=args.dataset.lower(),
+    #     batch_size=args.batch_size,
+    #     num_batches=args.num_batches,
+    #     num_slides_per_batch=args.num_slides_per_batch)
+    # data = shuffled_train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
+    data = train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
 
     
     """ LOAD TRANSFORMS """
     img_size = args.patch_resize if args.ssl_method.lower() != 'dino' else args.dino.img_size
-    if pps in ['closest_patch', 'random_neighbor', 'different_normal_slide', 'different_slide_same_label']:
-        from src.utils_transforms import ContextSamplingTransforms
-        transforms = ContextSamplingTransforms(resize_int=img_size)
-    elif pps in ['baseline']:
-        from src.utils_transforms import StandardTransforms 
-        transforms = StandardTransforms(resize_int=img_size)
-    else:
-        f"Transform for {pps} is not implemented" 
+    transforms = StandardTransforms(resize_int=img_size)
+    
+    # if pps in ['closest_patch', 'random_neighbor', 'different_normal_slide', 'different_slide_same_label']:
+    #     from src.utils_transforms import ContextSamplingTransforms
+    #     transforms = ContextSamplingTransforms(resize_int=img_size)
+    # elif pps in ['baseline']:
+    #     from src.utils_transforms import StandardTransforms 
+    #     transforms = StandardTransforms(resize_int=img_size)
+    # else:
+    #     f"Transform for {pps} is not implemented" 
 
 
     """ POSITIVE PAIR SAMPLIN METHOD """
@@ -91,6 +97,10 @@ def main(args: OmegaConf) -> None:
         from src.utils_positive_pairs import ContextPositivePairs
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         normal_label = get_normal_label(dataset=dataset_name)
+        if normal_label is None:
+            print("There is no Normal slide. Skipping...")
+            return
+
         positive_pairs_sampling_method = ContextPositivePairs(normal_label=normal_label).diff_normal_slide_positive_pairs
 
     elif pps == 'different_slide_same_label':
@@ -177,7 +187,7 @@ def main(args: OmegaConf) -> None:
         train_loader = torch.utils.data.DataLoader(
             dataset=dataset, 
             batch_size=args.batch_size, 
-            shuffle=False, 
+            shuffle=SHUFFLE, 
             num_workers=args.num_workers,
             pin_memory=True)
         _ = next(iter(train_loader))
@@ -225,8 +235,7 @@ def main(args: OmegaConf) -> None:
 
         hparams = args.dino
         OmegaConf.set_struct(hparams, True)
-        with open_dict(hparams):
-            hparams.batch_size = 512  
+        with open_dict(hparams): 
             hparams.num_epochs = args.max_epochs
             hparams.num_workers = args.num_workers  
             hparams.num_gpus = len(args.devices)
@@ -234,7 +243,7 @@ def main(args: OmegaConf) -> None:
         train_loader = torch.utils.data.DataLoader(
             dataset=dataset, 
             batch_size=hparams.batch_size, 
-            shuffle=False, 
+            shuffle=SHUFFLE, 
             num_workers=hparams.num_workers,
             pin_memory=True)
         _ = next(iter(train_loader))

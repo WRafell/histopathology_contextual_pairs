@@ -94,24 +94,33 @@ class MultiCropWrapper(nn.Module):
     concatenated features.
     """
     def __init__(self, backbone, head):
-        super().__init__()
+        super(MultiCropWrapper, self).__init__()
+        # disable layers dedicated to ImageNet labels classification
+        backbone.fc, backbone.head = nn.Identity(), nn.Identity()
         self.backbone = backbone
         self.head = head
 
     def forward(self, x):
-        """
-        x: list of input image tensors
-        """
+        # convert to list
+        if not isinstance(x, list):
+            x = [x]
         idx_crops = torch.cumsum(torch.unique_consecutive(
             torch.tensor([inp.shape[-1] for inp in x]),
             return_counts=True,
-        )[1], 0) # [2, 10] for student, [2] for teacher
-        start_idx = 0
-        out = []
+        )[1], 0)
+        start_idx, output = 0, torch.empty(0).to(x[0].device)
         for end_idx in idx_crops:
-            out += [self.backbone(torch.cat(x[start_idx:end_idx]))]
+            _out = self.backbone(torch.cat(x[start_idx: end_idx]))
+            # The output is a tuple with XCiT model. See:
+            # https://github.com/facebookresearch/xcit/blob/master/xcit.py#L404-L405
+            if isinstance(_out, tuple):
+                _out = _out[0]
+            # accumulate outputs
+            output = torch.cat((output, _out))
             start_idx = end_idx
-        return self.head(torch.cat(out))
+        # Run the head forward on the concatenated features.
+        return self.head(output)
+
     
 
 class DINOLoss(nn.Module):

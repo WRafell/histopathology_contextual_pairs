@@ -32,7 +32,7 @@ def main(args: OmegaConf) -> None:
 
     """ LOAD DATA """
     dataset_name = args.dataset.lower()
-    assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon'], f"{dataset_name} is not a valid dataset"
+    assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon', 'tcga'], f"{dataset_name} is not a valid dataset"
     print(f"\nDataset: {dataset_name}")
 
     num_patches = args.num_preselected_patches

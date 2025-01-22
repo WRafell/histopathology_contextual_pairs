@@ -10,10 +10,11 @@ set -e
 
 
 pps="closest_patch"
-datasets=("seedp-stomach" "seedp-colon")
+datasets=("tcga")
 ssl_methods=("barlow_twins" "byol" "vicreg")
-# minimum_distances=(1 5 10 0)
-minimum_distances=(2 3 4 15 20)
+# ssl_methods=("dino")
+minimum_distances=(1 5 10 0)
+# minimum_distances=(2 3 4 15 20)
 
 
 for dataset in "${datasets[@]}"; do

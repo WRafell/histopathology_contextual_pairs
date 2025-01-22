@@ -23,10 +23,21 @@ def main(args: OmegaConf) -> None:
 
 
     """ LOAD ENCODER """
-    print(f"\nSSL Method: {args.ssl_method} with {args.backbone_name} as backbone")     
-    encoder, _ = get_backbone(
-        backbone_name=args.backbone_name,
-        img_size=args.patch_resize)
+    if args.ssl_method.lower() != 'dino':
+        print(f"\nSSL Method: {args.ssl_method} with {args.backbone_name} as backbone")     
+        encoder, _ = get_backbone(
+            backbone_name=args.backbone_name,
+            img_size=args.patch_resize)
+        img_size = args.patch_resize
+    else:
+        print(f"\nSSL Method: {args.ssl_method} with ViT") 
+        from src.utils_vit import vits_dict 
+        model =  vits_dict[args.dino.architecture]
+        encoder = model(
+            img_size=args.dino.img_size,
+            patch_size=args.dino.patch_size)
+        img_size = args.dino.img_size  
+
     
     encoder_path = f"models/{args.dataset.lower()}/{basename}.pth"
     print(f"Encoder path: {encoder_path}")
@@ -42,7 +53,7 @@ def main(args: OmegaConf) -> None:
         saving_root=saving_root,
         df=df,
         encoder=encoder,
-        img_size=args.patch_resize,
+        img_size=img_size,
         device=args.device)
     
     emd_df = pd.DataFrame(emb_data, columns=['subset', 'emb_path', 'label']) 
