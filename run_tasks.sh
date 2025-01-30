@@ -3,16 +3,18 @@
 # Exit script if any command fails
 set -e
 
+start_time=$(date +%s)
 
 # PPS: ('baseline' 'randaugmentna' 'closest_patch' 'random_neighbor' 'region' 
 #       'different_normal_slide' 'different_slide_same_label' 'preselected_positive_pairs')
 # SSL Methods: ("barlow_twins" "byol" "simsiam" "vicreg" "dino (soon)")
 
 
-datasets=("camelyon16")
+datasets=("seedp-stomach")
 # pps_list=("baseline" "random_neighbor" "different_slide_same_label" "different_normal_slide")
 pps_list=("baseline")
-ssl_methods=("barlow_twins" "byol" "vicreg")
+# ssl_methods=("barlow_twins" "byol" "vicreg")
+ssl_methods=("barlow_twins")
 # pps_list=("baseline")
 
 
@@ -45,4 +47,11 @@ for dataset in "${datasets[@]}"; do
     done
 done
 
-echo "All tasks completed successfully."
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+
+hours=$(( elapsed_time / 3600 ))
+minutes=$(( (elapsed_time % 3600) / 60 ))
+seconds=$(( elapsed_time % 60 ))
+
+printf "All tasks completed successfully in %02d:%02d:%02d.\n" $hours $minutes $seconds

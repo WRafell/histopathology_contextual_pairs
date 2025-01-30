@@ -3,6 +3,8 @@
 # Exit script if any command fails
 set -e
 
+start_time=$(date +%s)
+
 
 # PPS: ('baseline' 'randaugmentna' 'closest_patch' 'random_neighbor' 'region' 
 #       'different_normal_slide' 'different_slide_same_label' 'preselected_positive_pairs')
@@ -10,9 +12,9 @@ set -e
 
 
 pps="closest_patch"
-datasets=("tcga")
+datasets=("seedp-stomach")
 ssl_methods=("barlow_twins" "byol" "vicreg")
-# ssl_methods=("dino")
+ssl_methods=("barlow_twins")
 minimum_distances=(1 5 10 0)
 # minimum_distances=(2 3 4 15 20)
 
@@ -46,4 +48,11 @@ for dataset in "${datasets[@]}"; do
     done
 done
 
-echo "All tasks completed successfully."
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+
+hours=$(( elapsed_time / 3600 ))
+minutes=$(( (elapsed_time % 3600) / 60 ))
+seconds=$(( elapsed_time % 60 ))
+
+printf "All tasks completed successfully in %02d:%02d:%02d.\n" $hours $minutes $seconds

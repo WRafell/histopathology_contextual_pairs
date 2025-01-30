@@ -1,3 +1,4 @@
+from ast import literal_eval
 from pathlib import Path
 from tqdm import tqdm
 import random
@@ -138,6 +139,12 @@ def load_dataset(dataset: str) -> pd.DataFrame:
         raise ValueError(f"{dataset} is not a valid dataset")
     
 
+def load_pivot_dataframe(dataset_name: str) -> pd.DataFrame:
+    csv_file = f"csv/sampled_{dataset_name}.csv"
+    assert Path(csv_file).exists, f"{csv_file} does not exist"
+    return pd.read_csv(csv_file)
+
+
 def load_preselected_samples(csv_dir: str) -> pd.DataFrame:
     assert Path(csv_dir).exists(), f"{csv_dir} does not exist"
     return pd.read_csv(csv_dir)
@@ -150,6 +157,37 @@ def get_normal_label(dataset: str) -> int:
         return 2
     else:
         return None
+    
+
+def process_neighbor_data(df: pd.DataFrame) -> tuple:
+    
+    # Convert neighbors with validation
+    def safe_parse_neighbors(neighbor_str: str) -> list:
+        try:
+            return literal_eval(neighbor_str)
+        except (SyntaxError, ValueError) as e:
+            print(f"Error parsing neighbors: {e}")
+            return []  # Return empty list for invalid entries
+    
+    # # Process neighbors column efficiently
+    # neighbors = df['neighbors'].apply(
+    #     lambda x: safe_parse_neighbors(x) if isinstance(x, str) else x
+    # ).tolist()
+    
+    # Create structured data with explicit types
+    data = list(zip(
+        df['pivot_patch'].astype(str),
+        df['slide'].astype(str),
+        df['coords'].apply(
+            lambda x: tuple(map(int, literal_eval(x))) if isinstance(x, str) else x
+        ),
+        df['slide_label'].astype(int),
+        df['neighbors'].apply(
+            lambda x: safe_parse_neighbors(x) if isinstance(x, str) else x
+        )
+    ))
+    
+    return data
 
 
 

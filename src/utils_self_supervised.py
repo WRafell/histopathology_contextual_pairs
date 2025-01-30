@@ -1,6 +1,7 @@
 from typing import Callable
 from PIL import Image
 import torch
+import random
 import lightning as L
 
 
@@ -16,7 +17,7 @@ class EncoderWithLinear(torch.nn.Module):
         return output
 
     
-# 'img_path', 'patch_label', 'slide_label', 'slide_name', 'coord'
+# (old) 'img_path', 'patch_label', 'slide_label', 'slide_name', 'coord'
 class TwoViewsDataset(torch.utils.data.Dataset):
     def __init__(self, data: list, transforms: Callable):
         super().__init__()
@@ -25,7 +26,7 @@ class TwoViewsDataset(torch.utils.data.Dataset):
         self.coords = [x[2] for x in data]           
         if isinstance(self.coords[0], str):
             self.coords = [tuple(map(int, eval(coord))) for coord in self.coords]
-        self.slide_labels = [x[3] for x in data]  
+        self.slide_labels = [x[3] for x in data] 
         self.transforms = transforms
 
     def __len__(self):
@@ -40,9 +41,77 @@ class TwoViewsDataset(torch.utils.data.Dataset):
         with open(img_path, 'rb') as f:
             img = Image.open(f).convert('RGB')
     
-        views = self.transforms(img)
-        return views, img_path, slide_name, coord, slide_label
+        view_1, view_2 = self.transforms(img)
+        return (view_1, view_2), img_path, slide_name, coord, slide_label
     
+
+# (new) 'pivot_patch', 'slide', 'coords', 'slide_label', 'neighbors'
+class NeighborDataset(torch.utils.data.Dataset):
+    def __init__(self, 
+            data: list, 
+            minimum_distance: int,
+            transforms: callable):
+        super().__init__()
+        self.img_paths = [x[0] for x in data]     
+        self.slide_names = [x[1] for x in data]
+        self.coords = [x[2] for x in data]           
+        if isinstance(self.coords[0], str):
+            self.coords = [tuple(map(int, eval(coord))) for coord in self.coords]
+        self.slide_labels = [x[3] for x in data] 
+        self.neighbors = [x[4] for x in data] 
+        self.minimum_distance = minimum_distance
+
+        # Preprocess neighbors during initialization
+        self.processed_neighbors = []
+        for idx, _ in enumerate(self.img_paths):
+            neighbors = self._process_neighbors(idx)
+            self.processed_neighbors.append(neighbors)
+            
+        self.transforms = transforms
+    
+    def __len__(self):
+        return len(self.img_paths)
+    
+    def __getitem__(self, idx):
+
+        pivot_path = self.img_paths[idx]
+        slide_label = self.slide_labels[idx]
+        slide_name = self.slide_names[idx]
+        coord = self.coords[idx]
+        
+        neighbor_path = random.choice(self.processed_neighbors[idx])
+
+        pivot_img, neighbor_img = self._load_images(pivot_path, neighbor_path)       
+
+        pivot_img, pivot_view = self.transforms(pivot_img)
+        
+        neighbor_img, _ = self.transforms(neighbor_img)
+
+        return (pivot_img, pivot_view, neighbor_img), (pivot_path, neighbor_path), slide_name, coord, slide_label
+
+
+    def _load_images(self, pivot_path: str, neighbor_path: str):
+        with open(pivot_path, 'rb') as f_pivot, open(neighbor_path, 'rb') as f_neighbor:
+            return (
+                Image.open(f_pivot).convert('RGB'),
+                Image.open(f_neighbor).convert('RGB')
+            )
+
+    def _process_neighbors(self, idx: int) -> list:
+        """Preprocess neighbor list for a given index"""
+        # Skip first element (assumed to be self reference)
+        neighbors = self.neighbors[idx][1:]  
+        
+        # Apply distance cutoff
+        if self.minimum_distance is not None:
+            neighbors = neighbors[:self.minimum_distance]
+        
+        # Flatten nested structure
+        flat_neighbors = [item for sublist in neighbors for item in sublist]
+        
+        # Fallback to pivot path if no neighbors
+        return flat_neighbors if flat_neighbors else [self.img_paths[idx]]
+  
 
 class PreselectedPairsDataset(torch.utils.data.Dataset):
     def __init__(self, data, transforms_pivot, transforms_neighbor):
@@ -88,9 +157,9 @@ class SSLModule(L.LightningModule):
         self.epoch_losses = []
 
     def training_step(self, batch, batch_idx):
-        view_1, view_2 = self.positive_pairs_sampling_method(batch)
-        loss = self.ssl_model(view_1, view_2)       
-        self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=view_1.size(0), sync_dist=True)
+        views = self.positive_pairs_sampling_method(batch)
+        loss = self.ssl_model(views)       
+        self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=views[0].size(0), sync_dist=True)
         self.step_losses.append(loss.item())
         self.temp_step_losses.append(loss.item())
         return loss

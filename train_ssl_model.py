@@ -1,5 +1,5 @@
 from src.utils_common import set_manual_seed, get_basename
-from src.utils_data import load_dataset, shuffle_train_data
+from src.utils_data import load_pivot_dataframe, process_neighbor_data
 from src.utils_transforms import StandardTransforms 
 from src.utils_models import get_backbone
 from lightning.pytorch.callbacks import RichProgressBar
@@ -21,13 +21,10 @@ def main(args: OmegaConf) -> None:
     pps = args.positive_pair_sampling
     print(f"Positive pair sampling: {pps}")
 
-    SHUFFLE = False
-
     assert args.positive_pair_sampling in [
         'baseline', 
         'closest_patch', 
         'random_neighbor', 
-        'region',
         'different_slide_same_label',
         'different_normal_slide',
         'preselected_positive_pairs'], f"{pps} is not implemented"   
@@ -43,35 +40,16 @@ def main(args: OmegaConf) -> None:
     """ LOAD DATA """
     dataset_name = args.dataset.lower()
     # assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon', 'tcga'], f"{dataset_name} is not a valid dataset"
-    print(f"\nDataset: {dataset_name}")
-    
-    df = load_dataset(dataset_name)   
-    train_df = df.query("subset=='train'")
-    # shuffled_train_df = shuffle_train_data(
-    #     train_df=train_df,
-    #     dataset_name=args.dataset.lower(),
-    #     batch_size=args.batch_size,
-    #     num_batches=args.num_batches,
-    #     num_slides_per_batch=args.num_slides_per_batch)
-    # data = shuffled_train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
-    data = train_df[['img_path', 'slide', 'coords', 'slide_label']].values.tolist()
+    print(f"\nDataset: {dataset_name}")    
+    df = load_pivot_dataframe(dataset_name=dataset_name)
+    data = process_neighbor_data(df)
+
 
     
-    """ LOAD TRANSFORMS """
+    """ POSITIVE PAIR SAMPLIN METHOD """
     img_size = args.patch_resize if args.ssl_method.lower() != 'dino' else args.dino.img_size
     transforms = StandardTransforms(resize_int=img_size)
-    
-    # if pps in ['closest_patch', 'random_neighbor', 'different_normal_slide', 'different_slide_same_label']:
-    #     from src.utils_transforms import ContextSamplingTransforms
-    #     transforms = ContextSamplingTransforms(resize_int=img_size)
-    # elif pps in ['baseline']:
-    #     from src.utils_transforms import StandardTransforms 
-    #     transforms = StandardTransforms(resize_int=img_size)
-    # else:
-    #     f"Transform for {pps} is not implemented" 
 
-
-    """ POSITIVE PAIR SAMPLIN METHOD """
     if pps == 'baseline':
         from src.utils_self_supervised import TwoViewsDataset       
         from src.utils_positive_pairs import two_distortion_positive_pairs
@@ -79,17 +57,19 @@ def main(args: OmegaConf) -> None:
         positive_pairs_sampling_method = two_distortion_positive_pairs
 
     elif pps == 'closest_patch':
-        from src.utils_self_supervised import TwoViewsDataset
-        from src.utils_positive_pairs import ContextPositivePairs
-        dataset = TwoViewsDataset(data=data, transforms=transforms)
+        from src.utils_self_supervised import NeighborDataset
+        from src.utils_positive_pairs import three_views_positive_pairs
+
+        assert args.minimum_distance is not None
         print(f"Selecting closest patch as Context Pair. Minimum distance: {args.minimum_distance}")
-        positive_pairs_sampling_method = ContextPositivePairs(minimum_distance=args.minimum_distance).closest_patch_positive_pairs
+        dataset = NeighborDataset(data=data, minimum_distance=args.minimum_distance, transforms=transforms)        
+        positive_pairs_sampling_method = three_views_positive_pairs
 
     elif pps == 'random_neighbor':
-        from src.utils_self_supervised import TwoViewsDataset
-        from src.utils_positive_pairs import ContextPositivePairs
-        dataset = TwoViewsDataset(data=data, transforms=transforms)
-        positive_pairs_sampling_method = ContextPositivePairs().random_patch_positive_pairs
+        from src.utils_self_supervised import NeighborDataset
+        from src.utils_positive_pairs import three_views_positive_pairs
+        dataset = NeighborDataset(data=data, minimum_distance=None, transforms=transforms)        
+        positive_pairs_sampling_method = three_views_positive_pairs
 
     elif pps == 'different_normal_slide':
         from src.utils_data import get_normal_label
@@ -109,19 +89,6 @@ def main(args: OmegaConf) -> None:
         from src.utils_positive_pairs import ContextPositivePairs
         dataset = TwoViewsDataset(data=data, transforms=transforms)
         positive_pairs_sampling_method = ContextPositivePairs().diff_slide_same_label_positive_pairs
-
-    elif pps == 'region':
-        # from src.utils_transforms import RegionTransforms 
-        # from src.utils_self_supervised import TwoViewsDataset       
-        # from src.utils_positive_pairs import two_distortion_positive_pairs
-        # transforms = RegionTransforms(resize_int=args.patch_resize).two_views_transform
-        # dataset = TwoViewsDataset(data=data, transforms=transforms)
-        # positive_pairs_sampling_method = two_distortion_positive_pairs
-
-        # TO BE IMPLEMENTED PROPERLY
-
-        raise ValueError(f"{args.positive_pair_sampling} is not implemented yet")
-
     else:
         raise ValueError(f"{args.positive_pair_sampling} is not a valid positive pair sampling method")
     
@@ -187,11 +154,16 @@ def main(args: OmegaConf) -> None:
         train_loader = torch.utils.data.DataLoader(
             dataset=dataset, 
             batch_size=args.batch_size, 
-            shuffle=SHUFFLE, 
+            shuffle=True, 
             num_workers=args.num_workers,
+            persistent_workers=True,
             pin_memory=True)
-        _ = next(iter(train_loader))
+        one_batch = next(iter(train_loader))
+        views = one_batch[0]
         print("Data loaded")
+        print(f"Number of views: {len(views)}")
+        del one_batch
+        del views
 
         if args.use_lars_optimizer:
             print("Using LARS optimizer")
@@ -243,11 +215,16 @@ def main(args: OmegaConf) -> None:
         train_loader = torch.utils.data.DataLoader(
             dataset=dataset, 
             batch_size=hparams.batch_size, 
-            shuffle=SHUFFLE, 
+            shuffle=True, 
             num_workers=hparams.num_workers,
+            persistent_workers=True,
             pin_memory=True)
-        _ = next(iter(train_loader))
+        one_batch = next(iter(train_loader))
+        views = one_batch[0]
         print("Data loaded")
+        print(f"Number of views: {len(views)}")
+        del one_batch
+        del views
 
         with open_dict(hparams):
             hparams.niter_per_ep = len(train_loader)  

@@ -24,28 +24,33 @@ def main(args: OmegaConf):
     """ SELECT PATCHES AND NEIGHBORS """
     train_df = df.query("subset=='train'").copy()
     
-    # Fix typo and use iloc for safer sampling
-    num_samples = min(int(args.num_samples), train_df.shape[0])
+    # Handle sampling with safety checks
+    # num_samples = min(int(args.num_samples), train_df.shape[0])
+    num_samples = 500_000 if args.dataset.lower() == 'camelyon16' else 100_000
     sampled_df = train_df.iloc[np.random.choice(train_df.shape[0], num_samples, replace=False)]
 
-    # Precompute slide groups and coordinate arrays
+    # Precompute slide data with patch limits
     slide_groups = train_df.groupby('slide')
-    slide_data = {
-        slide: {
-            'coords': np.stack(group['coords'].values),
-            'img_paths': group['img_path'].values
+    slide_data = {}
+    for slide, group in slide_groups:
+        # Limit to 1000 patches per slide
+        if len(group) > 1000:
+            group = group.sample(n=1000, random_state=args.random_seed)
+        slide_data[slide] = {
+            'coords': np.stack(group.coords.values),
+            'img_paths': group.img_path.values
         }
-        for slide, group in slide_groups
-    }
 
-    # Preallocate result arrays
-    proximity_levels = range(args.max_proximity + 1)
+    # Preallocate result containers
     data = {
         'slide': [],
+        'slide_label': [],
+        'patch_label': [],
         'coords': [],
         'pivot_patch': [],
         'neighbors': []
     }
+    max_proximity = args.max_proximity + 1
 
     for row in tqdm(sampled_df.itertuples(), total=sampled_df.shape[0]):
         slide_info = slide_data.get(row.slide)
@@ -57,23 +62,23 @@ def main(args: OmegaConf):
         diffs = np.abs(slide_info['coords'] - current_coord)
         proximities = diffs.max(axis=1)
         
-        # Create proximity map using numpy
-        unique_proximities = np.unique(proximities)
-        proximity_map = {
-            lvl: slide_info['img_paths'][proximities == lvl].tolist()
-            for lvl in unique_proximities
-        }
+        # Create proximity map with numpy
+        proximity_map = {}
+        for lvl in np.unique(proximities):
+            proximity_map[lvl] = slide_info['img_paths'][proximities == lvl].tolist()
 
-        # Build neighbors list with fallback to pivot patch
+        # Build neighbors list with fallback to pivot
         neighbors = []
-        for lvl in proximity_levels:
+        for lvl in range(max_proximity):
             if lvl == 0:
                 neighbors.append([row.img_path])
             else:
-                neighbors.append(proximity_map.get(lvl, [row.img_path]))
+                neighbors.append(proximity_map.get(lvl, []))
 
         # Store results
         data['slide'].append(row.slide)
+        data['slide_label'].append(row.slide_label)
+        data['patch_label'].append(row.label)
         data['coords'].append(row.coords)
         data['pivot_patch'].append(row.img_path)
         data['neighbors'].append(neighbors)
