@@ -1,7 +1,9 @@
+from ast import literal_eval
 from typing import Callable
 from PIL import Image
 import torch
 import random
+import numpy as np
 import lightning as L
 
 
@@ -19,14 +21,14 @@ class EncoderWithLinear(torch.nn.Module):
     
 # (old) 'img_path', 'patch_label', 'slide_label', 'slide_name', 'coord'
 class TwoViewsDataset(torch.utils.data.Dataset):
-    def __init__(self, data: list, transforms: Callable):
+    def __init__(self, data: np.array, transforms: Callable):
         super().__init__()
         self.img_paths = [x[0] for x in data]
         self.slide_names = [x[1] for x in data]
         self.coords = [x[2] for x in data]           
         if isinstance(self.coords[0], str):
             self.coords = [tuple(map(int, eval(coord))) for coord in self.coords]
-        self.slide_labels = [x[3] for x in data] 
+        self.neighbors = [literal_eval(x[4]) for x in data] 
         self.transforms = transforms
 
     def __len__(self):
@@ -43,6 +45,23 @@ class TwoViewsDataset(torch.utils.data.Dataset):
     
         view_1, view_2 = self.transforms(img)
         return (view_1, view_2), img_path, slide_name, coord, slide_label
+
+
+class BasicSSLDataset(torch.utils.data.Dataset):
+    def __init__(self, data: np.array, transforms: Callable):
+        super().__init__()
+        self.img_paths = [x[0] for x in data]
+        self.transforms = transforms
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.img_paths[idx]
+        with open(img_path, 'rb') as f:
+            img = Image.open(f).convert('RGB')    
+        view_1, view_2 = self.transforms(img)
+        return (view_1, view_2), img_path
     
 
 # (new) 'pivot_patch', 'slide', 'coords', 'slide_label', 'neighbors'
@@ -53,12 +72,7 @@ class NeighborDataset(torch.utils.data.Dataset):
             transforms: callable):
         super().__init__()
         self.img_paths = [x[0] for x in data]     
-        self.slide_names = [x[1] for x in data]
-        self.coords = [x[2] for x in data]           
-        if isinstance(self.coords[0], str):
-            self.coords = [tuple(map(int, eval(coord))) for coord in self.coords]
-        self.slide_labels = [x[3] for x in data] 
-        self.neighbors = [x[4] for x in data] 
+        self.neighbors = [literal_eval(x[1]) for x in data] 
         self.minimum_distance = minimum_distance
 
         # Preprocess neighbors during initialization
@@ -75,9 +89,6 @@ class NeighborDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
 
         pivot_path = self.img_paths[idx]
-        slide_label = self.slide_labels[idx]
-        slide_name = self.slide_names[idx]
-        coord = self.coords[idx]
         
         neighbor_path = random.choice(self.processed_neighbors[idx])
 
@@ -87,7 +98,7 @@ class NeighborDataset(torch.utils.data.Dataset):
         
         neighbor_img, _ = self.transforms(neighbor_img)
 
-        return (pivot_img, pivot_view, neighbor_img), (pivot_path, neighbor_path), slide_name, coord, slide_label
+        return (pivot_img, pivot_view, neighbor_img), (pivot_path, neighbor_path)
 
 
     def _load_images(self, pivot_path: str, neighbor_path: str):

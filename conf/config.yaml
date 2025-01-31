@@ -3,7 +3,7 @@ device: cuda:0
 
 
 # Data related
-dataset: seedp-stomach
+dataset: camelyon16
 shuffle_train: True
 patch_resize: 64  
 batch_size: 1024
@@ -12,7 +12,7 @@ num_batches: 100
 num_slides_per_batch: 100
 
 num_samples: 500000
-max_proximity: 1000
+max_proximity: 50
 
 # Pair sampling
 positive_pair_sampling: baseline

@@ -1,5 +1,5 @@
 from src.utils_common import set_manual_seed, get_basename
-from src.utils_data import load_pivot_dataframe, process_neighbor_data
+from src.utils_data import load_pivot_dataframe
 from src.utils_transforms import StandardTransforms 
 from src.utils_models import get_backbone
 from lightning.pytorch.callbacks import RichProgressBar
@@ -41,8 +41,11 @@ def main(args: OmegaConf) -> None:
     dataset_name = args.dataset.lower()
     # assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon', 'tcga'], f"{dataset_name} is not a valid dataset"
     print(f"\nDataset: {dataset_name}")    
-    df = load_pivot_dataframe(dataset_name=dataset_name)
-    data = process_neighbor_data(df)
+    # df = load_pivot_dataframe(dataset_name=dataset_name)
+    # print("DataFrame is loaded")
+    # # data = process_neighbor_data(df)  
+    # data = df[['pivot_patch', 'slide', 'coords', 'slide_label', 'neighbors']].values
+    # del df
 
 
     
@@ -51,14 +54,29 @@ def main(args: OmegaConf) -> None:
     transforms = StandardTransforms(resize_int=img_size)
 
     if pps == 'baseline':
-        from src.utils_self_supervised import TwoViewsDataset       
+        from src.utils_self_supervised import BasicSSLDataset       
         from src.utils_positive_pairs import two_distortion_positive_pairs
-        dataset = TwoViewsDataset(data=data, transforms=transforms)
+
+        columns = ['pivot_patch']
+        df = load_pivot_dataframe(dataset_name=dataset_name, columns=columns)
+        print("DataFrame is loaded")
+        # data = process_neighbor_data(df)  
+        data = df[columns].values
+        del df
+
+        dataset = BasicSSLDataset(data=data, transforms=transforms)
         positive_pairs_sampling_method = two_distortion_positive_pairs
 
     elif pps == 'closest_patch':
         from src.utils_self_supervised import NeighborDataset
         from src.utils_positive_pairs import three_views_positive_pairs
+
+        columns = ['pivot_patch', 'neighbors']
+        df = load_pivot_dataframe(dataset_name=dataset_name, columns=columns)
+        print("DataFrame is loaded")
+        # data = process_neighbor_data(df)  
+        data = df[columns].values
+        del df
 
         assert args.minimum_distance is not None
         print(f"Selecting closest patch as Context Pair. Minimum distance: {args.minimum_distance}")

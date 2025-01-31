@@ -106,7 +106,7 @@ def get_camelyon16(csv_file: str = "csv/camelyon16_data.csv", patch_size: int = 
         return x//512, y//512
 
     # Read the CSV file into a pandas DataFrame
-    df = pd.read_csv(csv_file)
+    df = pd.read_csv(csv_file, engine='pyarrow')
 
     # Apply the coordinate extraction function to each image path and store in a new 'coords' column
     df['coords'] = df['img_path'].apply(lambda img_path: extract_coords(img_path))
@@ -115,14 +115,14 @@ def get_camelyon16(csv_file: str = "csv/camelyon16_data.csv", patch_size: int = 
 
 
 def get_seedp_stomach():
-    return pd.read_csv("csv/seedp-stomach_data.csv")
+    return pd.read_csv("csv/seedp-stomach_data.csv", engine='pyarrow')
 
 
 def get_seedp_colon():
-    return pd.read_csv("csv/seedp-colon_data.csv")
+    return pd.read_csv("csv/seedp-colon_data.csv", engine='pyarrow')
 
 def get_tcga():
-    return pd.read_csv("csv/tcga_data.csv")
+    return pd.read_csv("csv/tcga_data.csv", engine='pyarrow')
 
 
 
@@ -139,15 +139,20 @@ def load_dataset(dataset: str) -> pd.DataFrame:
         raise ValueError(f"{dataset} is not a valid dataset")
     
 
-def load_pivot_dataframe(dataset_name: str) -> pd.DataFrame:
+# def load_pivot_dataframe(dataset_name: str) -> pd.DataFrame:
+#     csv_file = f"csv/sampled_{dataset_name}.csv"
+#     assert Path(csv_file).exists(), f"{csv_file} does not exist"
+#     return pd.read_csv(csv_file, engine='pyarrow')
+
+def load_pivot_dataframe(dataset_name: str, columns: list) -> pd.DataFrame:
     csv_file = f"csv/sampled_{dataset_name}.csv"
-    assert Path(csv_file).exists, f"{csv_file} does not exist"
-    return pd.read_csv(csv_file)
+    assert Path(csv_file).exists(), f"{csv_file} does not exist"
+    return pd.read_csv(csv_file, engine='pyarrow', usecols=columns)
 
 
 def load_preselected_samples(csv_dir: str) -> pd.DataFrame:
     assert Path(csv_dir).exists(), f"{csv_dir} does not exist"
-    return pd.read_csv(csv_dir)
+    return pd.read_csv(csv_dir, engine='pyarrow')
 
 
 def get_normal_label(dataset: str) -> int:
