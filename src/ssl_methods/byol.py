@@ -75,8 +75,3 @@ class BYOL(torch.nn.Module):
     def get_encoder(self):
         return deepcopy(self.online_network.encoder)
 
-    
-
-        
-
-        

@@ -211,6 +211,7 @@ def main(args: OmegaConf) -> None:
         ssl_module = SSLModule(
             ssl_model=ssl_model,
             positive_pairs_sampling_method=positive_pairs_sampling_method,
+            alpha=args.alpha,
             optimizer=optimizer,
             scheduler=scheduler,
             saving_path=saving_path,

@@ -26,10 +26,18 @@ class VICReg(nn.Module):
         self.cov_coeff = cov_coeff
 
     def forward(self, view_1, view_2):
-        batch_size = view_2.size(0)
+        batch_size = view_1.size(0)
         z1 = self.projector(self.backbone(view_1))
         z2 = self.projector(self.backbone(view_2))
 
+        loss = self._calculate_loss(z1, z2, batch_size)
+        
+        return loss
+    
+    def get_encoder(self):
+        return deepcopy(self.backbone)
+    
+    def _calculate_loss(self, z1, z2, batch_size):
         repr_loss = F.mse_loss(z1, z2)
 
         x = torch.cat(FullGatherLayer.apply(z1), dim=0)
@@ -53,9 +61,7 @@ class VICReg(nn.Module):
             + self.cov_coeff * cov_loss
         )
         return loss
-    
-    def get_encoder(self):
-        return deepcopy(self.backbone)
+
 
 
 

@@ -25,28 +25,19 @@ class BarlowTwins(torch.nn.Module):
         # normalization for the last layer
         self.bn = torch.nn.BatchNorm1d(sizes[-1], affine=False)
 
-    def forward(self, views, alpha: float = 0.5):
+    def forward(self, view_1, view_2):
 
         """
         Modified to accept 2 losses
         """
 
-        view_1 = views[0]
-        view_2 = views[1]  
-
         batch_size = view_1.size(0)
         representations_1 = self.projector(self.backbone(view_1))
         representations_2 = self.projector(self.backbone(view_2))
 
-        same_patch_loss = self._calculate_loss(representations_1, representations_2, batch_size)
-
-        if len(views) == 3:
-            another_patch_view = views[2]
-            representations_3 = self.projector(self.backbone(another_patch_view)) 
-            diff_patch_loss = self._calculate_loss(representations_1, representations_3, batch_size)   
-            return (1 - alpha) * same_patch_loss + alpha * diff_patch_loss
+        loss = self._calculate_loss(representations_1, representations_2, batch_size)
         
-        return same_patch_loss
+        return loss
     
     def get_encoder(self):
         return deepcopy(self.backbone)

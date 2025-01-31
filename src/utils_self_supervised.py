@@ -152,6 +152,7 @@ class SSLModule(L.LightningModule):
             self,
             ssl_model: torch.nn.Module,
             positive_pairs_sampling_method: Callable,
+            alpha: float,
             optimizer: torch.optim.Optimizer,
             scheduler: torch.optim.lr_scheduler,
             saving_path: str,
@@ -166,10 +167,21 @@ class SSLModule(L.LightningModule):
         self.temp_step_losses = []
         self.step_losses = []
         self.epoch_losses = []
+        self.alpha = alpha
 
     def training_step(self, batch, batch_idx):
         views = self.positive_pairs_sampling_method(batch)
-        loss = self.ssl_model(views)       
+        pivot_patch = views[0]
+        pivot_view = views[1]
+
+        if len(views) == 2:    
+            loss = self.ssl_model(pivot_patch, pivot_view)  
+        else:            
+            another_patch = views[2]
+            same_patch_loss = self.ssl_model(pivot_patch, pivot_view) 
+            diff_patch_loss = self.ssl_model(pivot_patch, another_patch)
+            loss = (1 - self.alpha) * same_patch_loss + self.alpha * diff_patch_loss
+
         self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=views[0].size(0), sync_dist=True)
         self.step_losses.append(loss.item())
         self.temp_step_losses.append(loss.item())

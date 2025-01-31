@@ -12,9 +12,9 @@ start_time=$(date +%s)
 
 
 pps="closest_patch"
-datasets=("seedp-colon")
+datasets=("seedp-stomach" "seedp-colon" "camelyon16" "tcga")
 ssl_methods=("barlow_twins" "byol" "vicreg")
-ssl_methods=("barlow_twins")
+ssl_methods=("byol" "vicreg")
 minimum_distances=(1 5 10 0)
 # minimum_distances=(2 3 4 15 20)
 
