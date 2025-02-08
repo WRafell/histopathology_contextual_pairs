@@ -7,6 +7,11 @@ def two_distortion_positive_pairs(batch: list) -> tuple:
     return views_1, views_2
 
 
+def only_neighbor_positive_pairs(batch: list) -> tuple:
+    pivot = batch[0][0]
+    neighbor = batch[0][2]
+    return pivot, neighbor
+
 def three_views_positive_pairs(batch: list) -> tuple:
     pivot_view_1, pivot_view_2, neighbor_view = batch[0][:3]
     return pivot_view_1, pivot_view_2, neighbor_view

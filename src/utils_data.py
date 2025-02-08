@@ -59,7 +59,7 @@ def preselect_positive_pairs(
         for proximity_level in proximity_levels:
             # If proximity level is 0, select the patch itself
             if proximity_level == 0:
-                selected_patch = row.img_path
+                selected_patches = row.img_path
             else:
                 # Filter patches from the same slide
                 subdf = all_train_df.query(f"slide=='{row.slide}'")
@@ -73,11 +73,15 @@ def preselect_positive_pairs(
 
                 # If no neighbors are found, select the current patch; otherwise, randomly sample one neighbor
                 if neighbors.empty:
-                    selected_patch = row.img_path 
+                    selected_patches = row.img_path 
                 else:
-                    selected_patch = neighbors.sample(n=1).reset_index().img_path[0]
+                    if neighbors.shape[0] > 10:
+                        selected_patches = neighbors.sample(n=10).img_path.values.tolist()
+                    else:
+                        selected_patches = neighbors.img_path.values.tolist()
 
-            new_row.append(selected_patch)
+
+            new_row.append(selected_patches)
 
         data.append(new_row)
 

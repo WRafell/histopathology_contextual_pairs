@@ -1,9 +1,9 @@
 from src.utils_common import set_manual_seed, get_basename
-from src.utils_data import load_preselected_samples
+from src.utils_data import load_pivot_dataframe
 from src.utils_models import get_backbone
-from src.utils_positive_pairs import two_distortion_positive_pairs    
-from src.utils_transforms import ContextSamplingTransforms 
-from src.utils_self_supervised import PreselectedPairsDataset, SSLModule 
+from src.utils_positive_pairs import only_neighbor_positive_pairs    
+from src.utils_transforms import StandardTransforms 
+from src.utils_self_supervised import NeighborDataset, SSLModule 
 from lightning.pytorch.callbacks import RichProgressBar
 from omegaconf import OmegaConf
 from pathlib import Path
@@ -35,30 +35,27 @@ def main(args: OmegaConf) -> None:
     assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon', 'tcga'], f"{dataset_name} is not a valid dataset"
     print(f"\nDataset: {dataset_name}")
 
-    num_patches = args.num_preselected_patches
-    preselected_csv_dir = f"./csv/preselected_dataset={dataset_name}_num-patches={num_patches}_seed={args.random_seed}.csv"
-    print(f"Preselected samples from: {preselected_csv_dir} with Proximity level: {args.proximity_level}")
-    train_df = load_preselected_samples(preselected_csv_dir)
+    columns = ['pivot_patch', 'neighbors']
+    df = load_pivot_dataframe(dataset_name=dataset_name, columns=columns)
 
-    if ('lonely' in args.positive_pair_sampling.lower()):
-        # first 4 columns are supposed to be "slide", "coords", "pivot_patch", and "neighbor_level_0" (pivot_patch)
-        # train_df = train_df[train_df.columns[:-2]]
-        proximity_levels = train_df.columns[4:].values   
-        for level in proximity_levels:
-            indeces = np.arange(train_df.shape[0])
-            indeces = indeces[train_df['pivot_patch'] == train_df[level]]
-            train_df.loc[indeces, level] = np.nan
-        train_df = train_df.dropna().reset_index(drop=True)
-        print(f"Removing duplicated positive pairs. Remaining number of pairs: {train_df.shape[0]}")
+    df = df.sample(frac=0.5)
+    print("DataFrame is loaded")
+    # data = process_neighbor_data(df)  
+    data = df[columns].values
+    print(f"Length of dataset: {len(data)}")
+    del df   
 
-    data = train_df[['pivot_patch', f'neighbor_level_{args.proximity_level}']].values.tolist()
-   
-
-    """ POSITIVE PAIR SAMPLIN METHOD """     
-    transforms_pivot = ContextSamplingTransforms(resize_int=args.patch_resize).train_transforms
-    transforms_neighbor = ContextSamplingTransforms(resize_int=args.patch_resize).train_transforms
-    dataset = PreselectedPairsDataset(data=data, transforms_pivot=transforms_pivot, transforms_neighbor=transforms_neighbor)
-    positive_pairs_sampling_method = two_distortion_positive_pairs
+    """ POSITIVE PAIR SAMPLIN METHOD """    
+    resolve_empty_neighbor = 'lonely' not in args.positive_pair_sampling.lower()
+    print(f"Resolve empty neighbor: {resolve_empty_neighbor}")
+    transforms = StandardTransforms(resize_int=args.patch_resize)
+    dataset = NeighborDataset(
+        data=data,
+        minimum_distance=args.proximity_level,
+        maximum_distance=args.proximity_level,
+        transforms=transforms,
+        resolve_empty_neighbor=resolve_empty_neighbor)
+    positive_pairs_sampling_method = only_neighbor_positive_pairs
    
      
     """ DATALOADER """
@@ -67,9 +64,14 @@ def main(args: OmegaConf) -> None:
         batch_size=args.batch_size, 
         shuffle=True, 
         num_workers=args.num_workers,
+        persistent_workers=True,
         pin_memory=True)
-    _ = next(iter(train_loader))
+    one_batch = next(iter(train_loader))
+    views = only_neighbor_positive_pairs(one_batch)
     print("Data loaded")
+    print(f"Number of views: {len(views)}")
+    del one_batch
+    del views
 
 
     """ SSL MODEL """
@@ -109,13 +111,15 @@ def main(args: OmegaConf) -> None:
         
     elif args.ssl_method.lower() == 'vicreg':
         from src.ssl_methods.vicreg import VICReg
+        use_distributed = len(args.devices) > 1
         ssl_model = VICReg(
             backbone=backbone,
             embedding_dim=embedding_dim,
             projector_arch=args.vicreg.projector_arch,
             sim_coeff=args.vicreg.sim_coeff,
             std_coeff=args.vicreg.std_coeff,
-            cov_coeff=args.vicreg.cov_coeff)
+            cov_coeff=args.vicreg.cov_coeff,
+            use_distributed=use_distributed)
         
     elif args.ssl_method.lower() == 'dino':
         raise ValueError(f"{args.ssl_method.lower()} is not implemented yet")
@@ -151,6 +155,7 @@ def main(args: OmegaConf) -> None:
     ssl_module = SSLModule(
         ssl_model=ssl_model,
         positive_pairs_sampling_method=positive_pairs_sampling_method,
+        alpha=args.alpha,
         optimizer=optimizer,
         scheduler=scheduler,
         saving_path=saving_path,
@@ -161,11 +166,13 @@ def main(args: OmegaConf) -> None:
     start_time = time.perf_counter()
 
     print("\nTraining...")
+    num_gpus = len(args.devices)
     trainer = L.Trainer(
         max_epochs=args.max_epochs,
         precision="bf16-mixed",
         accelerator=args.accelerator,
-        devices=args.devices,
+        strategy='ddp' if num_gpus > 1 else 'auto',
+        devices=num_gpus,
         callbacks=callbacks,
         limit_val_batches=0)
     trainer.fit(model=ssl_module, train_dataloaders=train_loader)

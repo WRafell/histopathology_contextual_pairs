@@ -3,7 +3,7 @@ device: cuda:0
 
 
 # Data related
-dataset: camelyon16
+dataset: seedp-stomach
 shuffle_train: True
 patch_resize: 64  
 batch_size: 1024

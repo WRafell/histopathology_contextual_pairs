@@ -80,13 +80,13 @@ def main(args: OmegaConf) -> None:
 
         assert args.maximum_distance is not None
         print(f"Selecting closest patch as Context Pair. Minimum distance: {args.maximum_distance}")
-        dataset = NeighborDataset(data=data, maximum_distance=args.maximum_distance, transforms=transforms)        
+        dataset = NeighborDataset(data=data, minimum_distance=args.minimum_distance, maximum_distance=args.maximum_distance, transforms=transforms)        
         positive_pairs_sampling_method = three_views_positive_pairs
 
     elif pps == 'random_neighbor':
         from src.utils_self_supervised import NeighborDataset
         from src.utils_positive_pairs import three_views_positive_pairs
-        dataset = NeighborDataset(data=data, maximum_distance=None, transforms=transforms)        
+        dataset = NeighborDataset(data=data, minimum_distance=args.minimum_distance, maximum_distance=None, transforms=transforms)        
         positive_pairs_sampling_method = three_views_positive_pairs
 
     elif pps == 'different_normal_slide':
@@ -260,11 +260,13 @@ def main(args: OmegaConf) -> None:
     start_time = time.perf_counter()
 
     print("\nTraining...")
+    num_gpus = len(args.devices)
     trainer = L.Trainer(
         max_epochs=args.max_epochs,
         precision="bf16-mixed",
         accelerator=args.accelerator,
-        devices=args.devices,
+        strategy='ddp' if num_gpus > 1 else 'auto',
+        devices=num_gpus,
         callbacks=callbacks,
         limit_val_batches=0)
     trainer.fit(model=ssl_module, train_dataloaders=train_loader)

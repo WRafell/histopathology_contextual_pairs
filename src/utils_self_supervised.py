@@ -70,22 +70,32 @@ class NeighborDataset(torch.utils.data.Dataset):
             data: list, 
             minimum_distance: int,
             maximum_distance: int,
-            transforms: callable):
+            transforms: callable,
+            resolve_empty_neighbor: bool = True):
         super().__init__()
 
         assert minimum_distance is not None, "Minimum distance cannot be None"
         assert maximum_distance >= minimum_distance, "Minimum_distance cannot be greater than maximum_distance"
 
-        self.img_paths = [x[0] for x in data]     
+        self.ori_img_paths = [x[0] for x in data]    
+        print(f"Image paths before: {len(self.ori_img_paths)}") 
         self.neighbors = [literal_eval(x[1]) for x in data] 
         self.minimum_distance = minimum_distance
         self.maximum_distance = maximum_distance
+        self.resolve_empty_neighbor = resolve_empty_neighbor
 
         # Preprocess neighbors during initialization
         self.processed_neighbors = []
-        for idx, _ in enumerate(self.img_paths):
+        self.img_paths = []
+        for idx, _ in enumerate(self.ori_img_paths):
             neighbors = self._process_neighbors(idx)
+            if neighbors is None:
+                continue
+            self.img_paths.append(self.ori_img_paths[idx])
             self.processed_neighbors.append(neighbors)
+
+        print(f"Image paths after processed: {len(self.img_paths)}")
+        print(f"Neighbors: {len(self.processed_neighbors)}")
             
         self.transforms = transforms
     
@@ -95,10 +105,14 @@ class NeighborDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
 
         pivot_path = self.img_paths[idx]
-        
+
         neighbor_path = random.choice(self.processed_neighbors[idx])
 
-        pivot_img, neighbor_img = self._load_images(pivot_path, neighbor_path)       
+        if neighbor_path is None:
+            pivot_img = self._load_image(pivot_path)
+
+        pivot_img = self._load_image(pivot_path)
+        neighbor_img = self._load_image(neighbor_path)   
 
         pivot_img, pivot_view = self.transforms(pivot_img)
         
@@ -106,13 +120,9 @@ class NeighborDataset(torch.utils.data.Dataset):
 
         return (pivot_img, pivot_view, neighbor_img), (pivot_path, neighbor_path)
 
-
-    def _load_images(self, pivot_path: str, neighbor_path: str):
-        with open(pivot_path, 'rb') as f_pivot, open(neighbor_path, 'rb') as f_neighbor:
-            return (
-                Image.open(f_pivot).convert('RGB'),
-                Image.open(f_neighbor).convert('RGB')
-            )
+    def _load_image(self, img_path: str):
+        with open(img_path, 'rb') as f:
+            return Image.open(f).convert('RGB')
 
     def _process_neighbors(self, idx: int) -> list:
         """Preprocess neighbor list for a given index"""
@@ -127,9 +137,14 @@ class NeighborDataset(torch.utils.data.Dataset):
         
         # Flatten nested structure
         flat_neighbors = [item for sublist in neighbors for item in sublist]
-        
-        # Fallback to pivot path if no neighbors
-        return flat_neighbors if flat_neighbors else [self.img_paths[idx]]
+
+        if flat_neighbors:
+            return flat_neighbors
+        elif self.resolve_empty_neighbor:       
+            # Fallback to pivot path if no neighbors
+            return [self.ori_img_paths[idx]]
+        else:
+            return None
   
 
 class PreselectedPairsDataset(torch.utils.data.Dataset):
