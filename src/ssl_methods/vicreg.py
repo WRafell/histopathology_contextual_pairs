@@ -12,7 +12,8 @@ class VICReg(nn.Module):
             projector_arch: str,
             sim_coeff: float,
             std_coeff: float,
-            cov_coeff: float):
+            cov_coeff: float,
+            use_distributed: bool):
         super().__init__()
         self.backbone = backbone
         self.embedding_dim = embedding_dim
@@ -24,15 +25,14 @@ class VICReg(nn.Module):
         self.sim_coeff = sim_coeff
         self.std_coeff = std_coeff
         self.cov_coeff = cov_coeff
+        self.use_distributed = use_distributed
 
     def forward(self, view_1, view_2):
         batch_size = view_1.size(0)
         z1 = self.projector(self.backbone(view_1))
         z2 = self.projector(self.backbone(view_2))
 
-        loss = self._calculate_loss(z1, z2, batch_size)
-        
-        return loss
+        return self._calculate_loss(z1, z2, batch_size)
     
     def get_encoder(self):
         return deepcopy(self.backbone)
@@ -40,8 +40,11 @@ class VICReg(nn.Module):
     def _calculate_loss(self, z1, z2, batch_size):
         repr_loss = F.mse_loss(z1, z2)
 
-        x = torch.cat(FullGatherLayer.apply(z1), dim=0)
-        y = torch.cat(FullGatherLayer.apply(z2), dim=0)
+        if self.use_distributed:
+            x = torch.cat(FullGatherLayer.apply(z1), dim=0)
+            y = torch.cat(FullGatherLayer.apply(z2), dim=0)
+        else:
+            x, y = z1, z2
 
         x = x - x.mean(dim=0)
         y = y - y.mean(dim=0)
@@ -61,7 +64,6 @@ class VICReg(nn.Module):
             + self.cov_coeff * cov_loss
         )
         return loss
-
 
 
 

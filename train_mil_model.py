@@ -14,8 +14,10 @@ torch.set_float32_matmul_precision('high')
 # To avoid NoneType error due to hydra
 TEST_ACC, TEST_AUC = [], []
 BASENAME = None
+ALPHA = None
 PROXIMITY_LEVEL = None
 MINIMUM_DISTANCE = None
+MAXIMUM_DISTANCE = None
 LOGGER_MODE = None
 LOGGER_NAME = None
 LOGGER_PATH = None
@@ -31,13 +33,15 @@ def main(args: OmegaConf):
     global LOGGER_NAME
     global LOGGER_PATH
     global PROXIMITY_LEVEL
+    global ALPHA
     global MINIMUM_DISTANCE
+    global MAXIMUM_DISTANCE
     
     basename = get_basename(args=args)
     print(f"Basename: {basename}")
     BASENAME = basename
     LOGGER_MODE = 'a'
-    LOGGER_NAME = f"pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"   
+    LOGGER_NAME = f"ssl={args.ssl_method}_pps={args.positive_pair_sampling}_encoder={args.backbone_name}"   
     if ('preselected_positive_pairs' in args.positive_pair_sampling.lower()):
         LOGGER_PATH = f"logs/slide_level/{args.dataset}/proximity_ablation"
         PROXIMITY_LEVEL = args.proximity_level
@@ -45,7 +49,9 @@ def main(args: OmegaConf):
         LOGGER_PATH = f"logs/slide_level/{args.dataset}/standard_exp"   
 
     if (args.positive_pair_sampling.lower() == 'closest_patch'):
-        MINIMUM_DISTANCE = args.minimum_distance     
+        ALPHA = args.alpha
+        MINIMUM_DISTANCE = args.minimum_distance
+        MAXIMUM_DISTANCE = args.maximum_distance   
 
     Path(LOGGER_PATH).mkdir(exist_ok=True, parents=True)
     print(f"Logger path: {LOGGER_PATH}. Logger mode: {LOGGER_MODE}")
@@ -134,9 +140,13 @@ if __name__=='__main__':
         print(f"{BASENAME}", file=logger)
         print(formatted_time, file=logger)
         if PROXIMITY_LEVEL is not None:
-            print(f"Level: {PROXIMITY_LEVEL}", file=logger)   
+            print(f"Level: {PROXIMITY_LEVEL}", file=logger)  
+        if ALPHA is not None:
+            print(f"Minimum Distance: {ALPHA}", file=logger)  
         if MINIMUM_DISTANCE is not None:
             print(f"Minimum Distance: {MINIMUM_DISTANCE}", file=logger)  
+        if MAXIMUM_DISTANCE is not None:
+            print(f"Minimum Distance: {MAXIMUM_DISTANCE}", file=logger)  
         print(f"All test acc: {TEST_ACC}", file=logger)
         print(f"All test auroc: {TEST_AUC}", file=logger)     
         print(f"Test acc: {test_acc_mean:.4f} +/- {test_acc_std:.4f}. "

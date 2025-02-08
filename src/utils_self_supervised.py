@@ -69,11 +69,17 @@ class NeighborDataset(torch.utils.data.Dataset):
     def __init__(self, 
             data: list, 
             minimum_distance: int,
+            maximum_distance: int,
             transforms: callable):
         super().__init__()
+
+        assert minimum_distance is not None, "Minimum distance cannot be None"
+        assert maximum_distance >= minimum_distance, "Minimum_distance cannot be greater than maximum_distance"
+
         self.img_paths = [x[0] for x in data]     
         self.neighbors = [literal_eval(x[1]) for x in data] 
         self.minimum_distance = minimum_distance
+        self.maximum_distance = maximum_distance
 
         # Preprocess neighbors during initialization
         self.processed_neighbors = []
@@ -110,12 +116,14 @@ class NeighborDataset(torch.utils.data.Dataset):
 
     def _process_neighbors(self, idx: int) -> list:
         """Preprocess neighbor list for a given index"""
-        # Skip first element (assumed to be self reference)
-        neighbors = self.neighbors[idx][1:]  
+      
+        neighbors = self.neighbors[idx] 
         
         # Apply distance cutoff
-        if self.minimum_distance is not None:
-            neighbors = neighbors[:self.minimum_distance]
+        if self.maximum_distance is not None:
+            neighbors = neighbors[self.minimum_distance:(self.maximum_distance+1)]
+        else:
+            neighbors = neighbors[self.minimum_distance:]
         
         # Flatten nested structure
         flat_neighbors = [item for sublist in neighbors for item in sublist]
@@ -178,8 +186,8 @@ class SSLModule(L.LightningModule):
             loss = self.ssl_model(pivot_patch, pivot_view)  
         else:            
             another_patch = views[2]
-            same_patch_loss = self.ssl_model(pivot_patch, pivot_view) 
-            diff_patch_loss = self.ssl_model(pivot_patch, another_patch)
+            same_patch_loss = self.ssl_model.forward(pivot_patch, pivot_view) 
+            diff_patch_loss = self.ssl_model.forward(pivot_patch, another_patch)
             loss = (1 - self.alpha) * same_patch_loss + self.alpha * diff_patch_loss
 
         self.log('loss', loss, on_step=True, on_epoch=True, prog_bar=True, batch_size=views[0].size(0), sync_dist=True)

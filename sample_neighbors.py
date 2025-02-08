@@ -27,6 +27,7 @@ def main(args: OmegaConf):
     # Handle sampling with safety checks
     # num_samples = min(int(args.num_samples), train_df.shape[0])
     num_samples = 500_000 if args.dataset.lower() == 'camelyon16' else 100_000
+    num_samples = 100_000
     sampled_df = train_df.iloc[np.random.choice(train_df.shape[0], num_samples, replace=False)]
 
     # Precompute slide data with patch limits

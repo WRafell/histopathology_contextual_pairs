@@ -10,11 +10,12 @@ start_time=$(date +%s)
 # SSL Methods: ("barlow_twins" "byol" "simsiam" "vicreg" "dino (soon)")
 
 
-datasets=("seedp-stomach")
+datasets=("seedp-stomach" "seedp-colon" "tcga")
+datasets=("camelyon16")
 # pps_list=("baseline" "random_neighbor" "different_slide_same_label" "different_normal_slide")
 pps_list=("baseline")
 # ssl_methods=("barlow_twins" "byol" "vicreg")
-ssl_methods=("barlow_twins")
+ssl_methods=("byol")
 # pps_list=("baseline")
 
 

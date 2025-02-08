@@ -78,15 +78,15 @@ def main(args: OmegaConf) -> None:
         data = df[columns].values
         del df
 
-        assert args.minimum_distance is not None
-        print(f"Selecting closest patch as Context Pair. Minimum distance: {args.minimum_distance}")
-        dataset = NeighborDataset(data=data, minimum_distance=args.minimum_distance, transforms=transforms)        
+        assert args.maximum_distance is not None
+        print(f"Selecting closest patch as Context Pair. Minimum distance: {args.maximum_distance}")
+        dataset = NeighborDataset(data=data, maximum_distance=args.maximum_distance, transforms=transforms)        
         positive_pairs_sampling_method = three_views_positive_pairs
 
     elif pps == 'random_neighbor':
         from src.utils_self_supervised import NeighborDataset
         from src.utils_positive_pairs import three_views_positive_pairs
-        dataset = NeighborDataset(data=data, minimum_distance=None, transforms=transforms)        
+        dataset = NeighborDataset(data=data, maximum_distance=None, transforms=transforms)        
         positive_pairs_sampling_method = three_views_positive_pairs
 
     elif pps == 'different_normal_slide':
@@ -148,13 +148,15 @@ def main(args: OmegaConf) -> None:
         
     elif args.ssl_method.lower() == 'vicreg':
         from src.ssl_methods.vicreg import VICReg
+        use_distributed = len(args.devices) > 1
         ssl_model = VICReg(
             backbone=backbone,
             embedding_dim=embedding_dim,
             projector_arch=args.vicreg.projector_arch,
             sim_coeff=args.vicreg.sim_coeff,
             std_coeff=args.vicreg.std_coeff,
-            cov_coeff=args.vicreg.cov_coeff)
+            cov_coeff=args.vicreg.cov_coeff,
+            use_distributed=use_distributed)
         
     elif args.ssl_method.lower() == 'dino':
         print("Implementing DINO")

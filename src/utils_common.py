@@ -17,8 +17,8 @@ def get_basename(args: OmegaConf):
     dataset: str = args.dataset.lower()
     
     if preselected_samples:
-        return f"ablation/ds={dataset}_pps={args.positive_pair_sampling}-level={args.proximity_level}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+        return f"ablation/ds={dataset}_ssl={args.ssl_method}_pps={args.positive_pair_sampling}-level={args.proximity_level}_encoder={args.backbone_name}"
     elif proximity_patch:
-        return f"ds={dataset}_pps={args.positive_pair_sampling}-{args.minimum_distance}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+        return f"ds={dataset}_ssl={args.ssl_method}_pps={args.positive_pair_sampling}-max={args.maximum_distance}_min={args.minimum_distance}_alpha={args.alpha}_encoder={args.backbone_name}"
     else:
-        return f"ds={dataset}_pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"
+        return f"ds={dataset}_ssl={args.ssl_method}_pps={args.positive_pair_sampling}_ssl={args.ssl_method}_encoder={args.backbone_name}"

@@ -5,18 +5,19 @@ set -e
 
 start_time=$(date +%s)
 
-
 # PPS: ('baseline' 'randaugmentna' 'closest_patch' 'random_neighbor' 'region' 
 #       'different_normal_slide' 'different_slide_same_label' 'preselected_positive_pairs')
 # SSL Methods: ("barlow_twins" "byol" "simsiam" "vicreg" "dino (soon)")
 
-
 pps="closest_patch"
 datasets=("seedp-stomach" "seedp-colon" "camelyon16" "tcga")
 ssl_methods=("barlow_twins" "byol" "vicreg")
-ssl_methods=("byol" "vicreg")
 minimum_distances=(1 5 10 0)
 # minimum_distances=(2 3 4 15 20)
+
+datasets=("camelyon16")
+ssl_methods=("barlow_twins")
+minimum_distances=(1 5 10 0)
 
 
 for dataset in "${datasets[@]}"; do
