@@ -79,7 +79,7 @@ def main(args: OmegaConf) -> None:
         del df
 
         assert args.maximum_distance is not None
-        print(f"Selecting closest patch as Context Pair. Minimum distance: {args.maximum_distance}")
+        print(f"Selecting closest patch as Context Pair. Maximum distance: {args.maximum_distance}")
         dataset = NeighborDataset(data=data, minimum_distance=args.minimum_distance, maximum_distance=args.maximum_distance, transforms=transforms)        
         positive_pairs_sampling_method = three_views_positive_pairs
 

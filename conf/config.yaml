@@ -1,9 +1,9 @@
-random_seed: 0
+random_seed: 2025
 device: cuda:0
 
 
 # Data related
-dataset: seedp-stomach
+dataset: tcga
 shuffle_train: True
 patch_resize: 64  
 batch_size: 1024
@@ -24,7 +24,7 @@ proximity_level: 0
 
 
 # Preselected Pairs
-num_preselected_patches: 100000
+num_preselected_patches: 50000
 
 
 # Model related

@@ -74,6 +74,7 @@ class NeighborDataset(torch.utils.data.Dataset):
             resolve_empty_neighbor: bool = True):
         super().__init__()
 
+
         assert minimum_distance is not None, "Minimum distance cannot be None"
         assert maximum_distance >= minimum_distance, "Minimum_distance cannot be greater than maximum_distance"
 
@@ -148,10 +149,10 @@ class NeighborDataset(torch.utils.data.Dataset):
   
 
 class PreselectedPairsDataset(torch.utils.data.Dataset):
-    def __init__(self, data, transforms_pivot, transforms_neighbor):
+    def __init__(self, pivot_paths, neighbor_paths, transforms_pivot, transforms_neighbor):
         super().__init__()
-        self.pivot_paths = [x[0] for x in data]
-        self.neighbor_paths = [x[1] for x in data]
+        self.pivot_paths = pivot_paths
+        self.neighbor_paths = neighbor_paths
         self.transforms_pivot = transforms_pivot
         self.transforms_neighbor = transforms_neighbor
     
@@ -160,7 +161,8 @@ class PreselectedPairsDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         pivot_path = self.pivot_paths[idx]
-        neighbor_path = self.neighbor_paths[idx]
+        neighbor_path = random.choice(self.neighbor_paths[idx])
+        
         with open(pivot_path, 'rb') as f:
             pivot_patch = Image.open(f).convert('RGB')
         with open(neighbor_path, 'rb') as f:
@@ -232,10 +234,6 @@ class SSLModule(L.LightningModule):
 
     def get_encoder(self):
         return self.ssl_model.get_encoder()
-    
-
-
-
 
 
 

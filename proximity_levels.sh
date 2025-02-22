@@ -8,6 +8,7 @@ pps="preselected_positive_pairs-lonely"
 proximity_levels=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)
 # proximity_levels=(7 8 9 10 11 12 13 14 15 20 25 30)
 proximity_levels=(0 1 2 3 4 5 10 15 20 25 30)
+# proximity_levels=(25)
 ssl_methods=("barlow_twins" "byol" "vicreg")
 
 # ssl_methods=("barlow_twins")
@@ -16,7 +17,6 @@ ssl_methods=("barlow_twins" "byol" "vicreg")
 for dataset in "${datasets[@]}"; do
     for ssl_method in "${ssl_methods[@]}"; do
         for proximity_level in "${proximity_levels[@]}"; do
-
 
             echo "SSL Method: $ssl_method , Proximity level: $proximity_level"
 

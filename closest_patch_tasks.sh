@@ -10,39 +10,34 @@ start_time=$(date +%s)
 # SSL Methods: ("barlow_twins" "byol" "simsiam" "vicreg" "dino (soon)")
 
 pps="closest_patch"
-datasets=("seedp-stomach" "seedp-colon" "camelyon16" "tcga")
+datasets=("seedp-colon" "camelyon16" "tcga")
 ssl_methods=("barlow_twins" "byol" "vicreg")
-minimum_distances=(1 5 10 0)
-# minimum_distances=(2 3 4 15 20)
-
-datasets=("camelyon16")
-ssl_methods=("barlow_twins")
-minimum_distances=(1 5 10 0)
+maximum_distances=(15 20 30)
 
 
 for dataset in "${datasets[@]}"; do
     for ssl_method in "${ssl_methods[@]}"; do
-        for minimum_distance in "${minimum_distances[@]}"; do
+        for maximum_distance in "${maximum_distances[@]}"; do
 
             # if [ "$ssl_method" = "barlow_twins" ] && [ "$pps" = "different_normal_slide" ]; then
-            #     echo "Skipping SSL method: $ssl_method and PPS: $pps"
+            #     echo "Skipping SSL method: $ssl_method and PPS: $pps"20
             #     continue
             # fi
 
-            echo "SSL Method: $ssl_method , PPS: $pps, Minimum Distance: $minimum_distance"
+            echo "SSL Method: $ssl_method , PPS: $pps, Maximum distance: $maximum_distance"
 
             echo "Starting SSL model training..." 
-            python train_ssl_model.py positive_pair_sampling=$pps ssl_method=$ssl_method minimum_distance=$minimum_distance dataset=$dataset
+            python train_ssl_model.py positive_pair_sampling=$pps ssl_method=$ssl_method maximum_distance=$maximum_distance dataset=$dataset
             echo "SSL model training complete."
             sleep 1
 
             echo "Generating embeddings..."
-            python generate_embeddings.py positive_pair_sampling=$pps ssl_method=$ssl_method minimum_distance=$minimum_distance dataset=$dataset
+            python generate_embeddings.py positive_pair_sampling=$pps ssl_method=$ssl_method maximum_distance=$maximum_distance dataset=$dataset
             echo "Embeddings generation complete."
             sleep 1
 
             echo "Starting MIL model training..."
-            python train_mil_model.py positive_pair_sampling=$pps ssl_method=$ssl_method minimum_distance=$minimum_distance dataset=$dataset
+            python train_mil_model.py positive_pair_sampling=$pps ssl_method=$ssl_method maximum_distance=$maximum_distance dataset=$dataset
             echo "MIL model training complete."
             sleep 1
         done

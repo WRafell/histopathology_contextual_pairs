@@ -21,11 +21,10 @@ def main(args: OmegaConf):
     if isinstance(df.coords[0], str):
         df['coords'] = [eval(coord) for coord in df.coords]
 
-
      
     """ SELECT POSITIVE PAIRS BASED ON PROXIMITY """
     # Selecting N patches, where N = batch_size * num_batches
-    proximity_levels = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30]
+    proximity_levels = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 100]
     print(f"Proximity levels: {proximity_levels}")
 
     train_df = df.query("subset=='train'")

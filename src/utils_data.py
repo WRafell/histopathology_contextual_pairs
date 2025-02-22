@@ -29,7 +29,8 @@ def shuffle_train_data(
 def preselect_positive_pairs(
         all_train_df: pd.DataFrame, 
         num_patches: int,
-        proximity_levels: list) -> pd.DataFrame:
+        proximity_levels: list,
+        max_num_neighbors: int = 50) -> pd.DataFrame:
     
     """
     Preselect positive pairs of patches for a given set of proximity levels.
@@ -75,8 +76,8 @@ def preselect_positive_pairs(
                 if neighbors.empty:
                     selected_patches = row.img_path 
                 else:
-                    if neighbors.shape[0] > 10:
-                        selected_patches = neighbors.sample(n=10).img_path.values.tolist()
+                    if neighbors.shape[0] > max_num_neighbors:
+                        selected_patches = neighbors.sample(n=max_num_neighbors).img_path.values.tolist()
                     else:
                         selected_patches = neighbors.img_path.values.tolist()
 
