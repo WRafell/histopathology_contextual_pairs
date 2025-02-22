@@ -16,7 +16,7 @@ maximum_distances=(1)
 alphas=(0.25 0.75)
 
 datasets=("seedp-stomach")
-ssl_methods=("byol")
+ssl_methods=("byol" "vicreg" "barlow_twins")
 alphas=(0.25)
 
 
