@@ -1,4 +1,4 @@
-random_seed: 2025
+random_seed: 0
 device: cuda:0
 
 
