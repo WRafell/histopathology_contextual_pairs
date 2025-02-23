@@ -1,5 +1,5 @@
-from src.utils_common import set_manual_seed, get_basename
-from src.utils_models import get_backbone
+from utils_common import set_manual_seed, get_basename
+from utils_models import get_backbone
 from omegaconf import OmegaConf
 from datetime import datetime
 from pathlib import Path
@@ -95,7 +95,7 @@ def main(args: OmegaConf):
     
     # MIL method
     if args.mil.mil_method.lower() == 'abmil':
-        from src.mil_methods.abmil import ABMIL
+        from abmil import ABMIL
         trainer = ABMIL(
             embedding_dim=embedding_dim,
             num_classes=num_classes,
