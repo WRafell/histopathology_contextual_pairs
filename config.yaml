@@ -1,0 +1,130 @@
+random_seed: 0
+device: cuda:0
+
+
+# Data related
+dataset: tcga
+shuffle_train: True
+patch_resize: 64  
+batch_size: 1024
+num_workers: 16
+num_batches: 100
+num_slides_per_batch: 100
+
+num_samples: 500000
+max_proximity: 50
+alpha: 0.5
+
+# Pair sampling
+positive_pair_sampling: baseline
+minimum_distance: 1
+maximum_distance: 10
+normal_label: 2
+proximity_level: 0
+
+
+# Preselected Pairs
+num_preselected_patches: 50000
+
+
+# Model related
+backbone_name: resnet18
+optimizer: 
+  _target_: torch.optim.Adam
+  lr: 0.0003
+  weight_decay: 0.01
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+accelerator: gpu
+devices: [0]
+max_epochs: 100
+
+# LARS Optimizer
+use_lars_optimizer: true
+lars:
+    lr: 0
+    base_lr: 0.2
+    weight_decay: 0.000001
+    weight_decay_filter: 1
+    lars_adaptation_filter: 2
+
+
+# SSL related
+ssl_method: barlow_twins
+
+barlow_twins:
+  projector: 1028-1028-1028
+  lambd: 0.0051
+
+byol:
+  mlp_hidden_size: 512
+  projector_dim: 128
+  momentum: 0.996
+
+simsiam:
+  encoder_dim: 1028
+  pred_dim: 512
+
+vicreg:
+  projector_arch: 1028-1028-1028
+  sim_coeff: 25.0
+  std_coeff: 25.0
+  cov_coeff: 1.0
+
+dino:
+  # model_parameters
+  architecture: tiny
+  batch_size: 128
+  img_size: 224  
+  patch_size: 16
+  pretrained: false  
+  out_dim: 65536
+  norm_last_layer: true
+  momentum_teacher: 0.996
+  use_bn_in_head: false
+
+  # temperature_teacher_parameters
+  warmup_teacher_temp: 0.04
+  final_teacher_temp: 0.05
+  warmup_teacher_temp_epochs: 30
+
+  # training_optimization_parameters
+  use_fp16: true
+  weight_decay: 0.04
+  weight_decay_end: 0.4
+  clip_grad: 3.0
+  batch_size_per_gpu: 64
+  epochs: 100
+  freeze_last_layer: 1
+  lr: 0.0005
+  warmup_epochs: 10
+  min_lr: 1e-6
+  optimizer: adamw
+  drop_path_rate: 0.1
+
+  # multi_crop_parameters  
+  global_crops_scale: [0.5, 1.0]
+  local_crops_number: 0
+  local_crop_size: 48
+  local_crops_scale: [0.05, 0.5]
+
+
+# MIL related
+mil:
+  mil_method: abmil
+  learning_rate: 0.001
+  weight_decay: 1e-2
+  max_epochs: 100
+
+
+# Supervised Learning
+supervised:
+  train_baseline: false
+  num_runs: 3
+  learning_rate: 0.01
+  weight_decay: 1e-6
+  max_epochs: 50
+  
+
+
+
