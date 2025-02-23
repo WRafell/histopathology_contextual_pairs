@@ -5,5 +5,5 @@ Based code for the paper titled "Leveraging Spatial Context for Positive Pair Sa
 ## Abstract
 Deep learning methods have demonstrated great promise in cancer classification from whole-slide images (WSIs), yet their reliance on large, meticulously annotated datasets remains a critical bottleneck. Annotation-free approaches—such as multiple instance learning (MIL) and self-supervised learning (SSL)—have emerged to address this challenge; however, current SSL techniques often depend on synthetic augmentations or temporal context, which may not adequately capture the intricate spatial relationships inherent to histopathology. In this work, we introduce a novel spatial context-driven positive pair sampling strategy for SSL that leverages the natural coherence of adjacent patches in WSIs. By constructing biologically relevant positive pairs from spatially proximate patches, our approach harnesses inherent spatial coherence to enhance patch-level representations, ultimately boosting slide-level classification performance. We systematically analyze the effect of spatial distance on the contextual positive pairs. Experiments on multiple datasets demonstrate consistent improvements in downstream WSI classification, paving the way for more clinically relevant and annotation-efficient AI models in cancer diagnosis.
 
-## Overview
-![Overview](asset/figures/overview.png)
+<!-- ## Overview
+![Overview](asset/figures/overview.png) -->
