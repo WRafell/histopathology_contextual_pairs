@@ -39,15 +39,8 @@ def main(args: OmegaConf) -> None:
 
     """ LOAD DATA """
     dataset_name = args.dataset.lower()
-    # assert dataset_name in ['camelyon16', 'seedp-stomach', 'seedp-colon', 'tcga'], f"{dataset_name} is not a valid dataset"
-    print(f"\nDataset: {dataset_name}")    
-    # df = load_pivot_dataframe(dataset_name=dataset_name)
-    # print("DataFrame is loaded")
-    # # data = process_neighbor_data(df)  
-    # data = df[['pivot_patch', 'slide', 'coords', 'slide_label', 'neighbors']].values
-    # del df
-
-
+    print(f"\nDataset: {dataset_name}")   
+    
     
     """ POSITIVE PAIR SAMPLIN METHOD """
     img_size = args.patch_resize if args.ssl_method.lower() != 'dino' else args.dino.img_size
