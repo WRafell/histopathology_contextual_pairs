@@ -18,11 +18,11 @@ class Transforms:
             v2.RandomVerticalFlip(p=0.5),
             v2.RandomApply([v2.RandomChannelPermutation()], p=0.2),
             v2.RandomApply(
-                [v2.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1)], 
+                [v2.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1)],
                 p=0.5
             ),
             v2.RandomApply([v2.RandAugment()], p=0.2),
-            v2.RandomGrayscale(p=0.1),    
+            v2.RandomGrayscale(p=0.1),
             v2.RandomApply([v2.ElasticTransform(alpha=150.0)], p=0.2),
             v2.RandomApply([v2.RandomEqualize()], p=0.2),
             v2.RandomApply([v2.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5.))], p=0.2),
@@ -42,7 +42,7 @@ class Transforms:
 class LabeledDataset(torch.utils.data.Dataset):
     """
     A simple dataset class used for image classification tasks.
-    
+
     Args:
         dataset (list): A list of tuples, containing the path to the image and its corresponding label.
         transforms (Compose): A torchvision Compose object, used to apply transformations to the images.
@@ -59,21 +59,21 @@ class LabeledDataset(torch.utils.data.Dataset):
         img_path, label = self.dataset[index]
         label = torch.tensor(label, dtype=torch.long)
         with open(img_path, 'rb') as f:
-            img = Image.open(f).convert('RGB')   
+            img = Image.open(f).convert('RGB')
         img = self.transforms(img)
         return img, label, img_path
-    
+
 
 class PatchLevelClassifier(torch.nn.Module):
     def __init__(self, encoder: torch.nn.Module, embedding_dim: int, num_classes: int):
         super().__init__()
         self.encoder = encoder
         self.linear = torch.nn.Linear(embedding_dim, num_classes)
-    
+
     def forward(self, x):
         out = self.linear(self.encoder(x))
         return out
-   
+
 
 class PatchLevelTrainer():
     def __init__(self, model: torch.nn.Module, learning_rate: float, max_epochs: int, device: int, patience: int = None):
@@ -104,9 +104,9 @@ class PatchLevelTrainer():
             corrects = 0
             for batch in tqdm(train_loader, total=len(train_loader), desc=f"{epoch}/{self.max_epoch}. Train", leave=False):
                 inputs = batch[0].to(self.device)
-                labels = batch[1].to(self.device)              
+                labels = batch[1].to(self.device)
 
-                self.optimizer.zero_grad()                
+                self.optimizer.zero_grad()
                 with torch.cuda.amp.autocast():
                     output = self.model(inputs)
                     loss = self.loss_function(output, labels)
@@ -130,7 +130,7 @@ class PatchLevelTrainer():
             with torch.no_grad():
                 for batch in tqdm(val_loader, total=len(val_loader), desc=f"{epoch}/{self.max_epoch}. Val", leave=False):
                     inputs = batch[0].to(self.device)
-                    labels = batch[1].to(self.device)   
+                    labels = batch[1].to(self.device)
 
                     output = self.model(inputs)
                     loss = F.cross_entropy(output, labels)
@@ -155,7 +155,7 @@ class PatchLevelTrainer():
             if (epoch%10==0) or (epoch==1) or (epoch+1==self.max_epoch):
                 print(f"{epoch}/{self.max_epoch} Train loss: {train_loss:.4f}. Train acc: {train_acc:.4f} "
                     f"Val loss: {val_loss:.4f}. Val acc: {val_acc:.4f}. Patience: {patience_counter}/{self.patience}")
-                
+
             if self.patience is not None:
                 if patience_counter >= self.patience:
                     print(f"Early stopping triggered. Best epoch: {best_epoch} with Val loss: {lowest_val_loss:.4f}")
@@ -163,7 +163,7 @@ class PatchLevelTrainer():
 
 
         return best_model
-    
+
     def test(self, model: torch.nn.Module, test_loader: torch.utils.data.DataLoader, num_classes: int):
         model.to(self.device)
         model.eval()
@@ -176,7 +176,7 @@ class PatchLevelTrainer():
         with torch.no_grad():
             for batch in tqdm(test_loader, total=len(test_loader), desc="Testing...", leave=False):
                 inputs = batch[0].to(self.device)
-                labels = batch[1].to(self.device)  
+                labels = batch[1].to(self.device)
 
 
                 outputs = model(inputs)

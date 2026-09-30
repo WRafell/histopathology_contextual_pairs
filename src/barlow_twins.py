@@ -36,13 +36,13 @@ class BarlowTwins(torch.nn.Module):
         representations_2 = self.projector(self.backbone(view_2))
 
         loss = self._calculate_loss(representations_1, representations_2, batch_size)
-        
+
         return loss
-    
+
     def get_encoder(self):
         return deepcopy(self.backbone)
-    
-    
+
+
     def _calculate_loss(self, z1, z2, batch_size):
         c = self.bn(z1).T @ self.bn(z2)
         c.div_(batch_size)
@@ -51,4 +51,3 @@ class BarlowTwins(torch.nn.Module):
         off_diag = off_diagonal(c).pow_(2).sum()
         return on_diag + self.lambd * off_diag
 
-    

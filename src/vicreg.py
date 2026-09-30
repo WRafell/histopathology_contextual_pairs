@@ -6,9 +6,9 @@ import torch.nn.functional as F
 
 
 class VICReg(nn.Module):
-    def __init__(self, 
-            backbone: nn.Module, 
-            embedding_dim: int,  
+    def __init__(self,
+            backbone: nn.Module,
+            embedding_dim: int,
             projector_arch: str,
             sim_coeff: float,
             std_coeff: float,
@@ -20,7 +20,7 @@ class VICReg(nn.Module):
         self.num_features = int(projector_arch.split("-")[-1])
         self.projector_arc = projector_arch
         self.projector = Projector(
-            embedding_dim=embedding_dim, 
+            embedding_dim=embedding_dim,
             projector_arch=projector_arch)
         self.sim_coeff = sim_coeff
         self.std_coeff = std_coeff
@@ -33,10 +33,10 @@ class VICReg(nn.Module):
         z2 = self.projector(self.backbone(view_2))
 
         return self._calculate_loss(z1, z2, batch_size)
-    
+
     def get_encoder(self):
         return deepcopy(self.backbone)
-    
+
     def _calculate_loss(self, z1, z2, batch_size):
         repr_loss = F.mse_loss(z1, z2)
 
@@ -51,11 +51,11 @@ class VICReg(nn.Module):
 
         std_x = torch.sqrt(x.var(dim=0) + 0.0001)
         std_y = torch.sqrt(y.var(dim=0) + 0.0001)
-        std_loss = torch.mean(F.relu(1 - std_x)) / 2 + torch.mean(F.relu(1 - std_y)) / 2 
+        std_loss = torch.mean(F.relu(1 - std_x)) / 2 + torch.mean(F.relu(1 - std_y)) / 2
 
         cov_x = (x.T @ x) / (batch_size - 1)
         cov_y = (y.T @ y) / (batch_size - 1)
-        cov_loss = off_diagonal(cov_x).pow_(2).sum().div(self.num_features) 
+        cov_loss = off_diagonal(cov_x).pow_(2).sum().div(self.num_features)
         cov_loss += off_diagonal(cov_y).pow_(2).sum().div(self.num_features)
 
         loss = (
@@ -84,7 +84,7 @@ class FullGatherLayer(torch.autograd.Function):
         all_gradients = torch.stack(grads)
         torch.distributed.all_reduce(all_gradients)
         return all_gradients[torch.distributed.get_rank()]
-    
+
 
 def Projector(embedding_dim: int, projector_arch: str) -> nn.Module:
     mlp_spec = f"{embedding_dim}-{projector_arch}"
@@ -96,7 +96,7 @@ def Projector(embedding_dim: int, projector_arch: str) -> nn.Module:
         layers.append(nn.ReLU(True))
     layers.append(nn.Linear(f[-2], f[-1], bias=False))
     return nn.Sequential(*layers)
-    
+
 
 def off_diagonal(x):
     n, m = x.shape

@@ -3,7 +3,6 @@ Mostly copy-paste from:
 https://github.com/kwea123/dino_pl/blob/master/models.py
 https://github.com/kwea123/dino_pl/blob/master/losses.py
 '''
-from einops import reduce
 from torch import nn
 import math
 import warnings
@@ -121,7 +120,7 @@ class MultiCropWrapper(nn.Module):
         # Run the head forward on the concatenated features.
         return self.head(output)
 
-    
+
 
 class DINOLoss(nn.Module):
     def __init__(self, out_dim, ncrops, warmup_teacher_temp, final_teacher_temp,
@@ -158,7 +157,7 @@ class DINOLoss(nn.Module):
             for v in range(len(student_out)):
                 if v == iq: # skip cases where student and teacher operate on the same view
                     continue
-                loss = reduce(-q*F.log_softmax(student_out[v], dim=-1), 'b o -> b', 'sum')
+                loss = (-q * F.log_softmax(student_out[v], dim=-1)).sum(dim=-1)
                 total_loss += loss.mean()
                 n_loss_terms += 1
         total_loss /= n_loss_terms
@@ -169,7 +168,7 @@ class DINOLoss(nn.Module):
         """
         Update center used for teacher output.
         """
-        batch_center = reduce(teacher_output, 'b o -> 1 o', 'mean')
+        batch_center = teacher_output.mean(dim=0, keepdim=True)
 
         self.center = self.center * self.center_momentum + \
                       batch_center * (1 - self.center_momentum)

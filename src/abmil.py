@@ -36,7 +36,7 @@ class Attention(nn.Module):
         M = torch.mm(A, x)
         out = self.classifier(M)
         return out
-    
+
 
 class ABMIL():
     def __init__(self, embedding_dim: int, num_classes: int, learning_rate: float, weight_decay: float, max_epochs: int, device: str, verbose: bool = True):
@@ -49,7 +49,7 @@ class ABMIL():
         self.num_classes = num_classes
         self.verbose = verbose
         return
-    
+
     def train(self, train_data: list, val_data: list):
 
         self.train_losses = []
@@ -61,7 +61,7 @@ class ABMIL():
         best_epoch = 0
         scaler = torch.cuda.amp.GradScaler()
         for epoch in range(1, self.max_epochs+1):
-            self.model.train()      
+            self.model.train()
             total_inputs = len(train_data)
             train_data = random.sample(train_data, total_inputs)
             running_loss = 0.
@@ -73,7 +73,7 @@ class ABMIL():
                 embeddings = embeddings.to(self.device)
                 slide_label = torch.tensor(slide_label).long().unsqueeze(0).to(self.device)
 
-                self.optimizer.zero_grad()                
+                self.optimizer.zero_grad()
                 with torch.cuda.amp.autocast():
                     output = self.model(embeddings)
                     loss = self.loss_function(output, slide_label)
@@ -126,7 +126,7 @@ class ABMIL():
 
 
         return best_model
-    
+
 
     def test(self, model: torch.nn.Module, test_data: list):
         self.model.eval()

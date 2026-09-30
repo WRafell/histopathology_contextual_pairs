@@ -36,13 +36,13 @@ def get_transforms(img_size: int):
 
 @torch.no_grad()
 def save_embeddings(
-        saving_root: str, 
-        df: pd.DataFrame, 
-        encoder: torch.nn.Module, 
-        img_size: int, 
-        device: str, 
+        saving_root: str,
+        df: pd.DataFrame,
+        encoder: torch.nn.Module,
+        img_size: int,
+        device: str,
         rewrite: bool = True,
-        batch_size: int = 128, 
+        batch_size: int = 128,
         num_workers: int = 16) -> list:
     encoder.eval()
     encoder.to(device)

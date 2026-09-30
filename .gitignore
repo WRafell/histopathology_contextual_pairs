@@ -1,0 +1,9 @@
+# Local graft graph cache; regenerable with `graft build`.
+/graft/
+
+# Local datasets and derived experiment artifacts.
+/local/
+
+# Python bytecode.
+__pycache__/
+*.py[cod]

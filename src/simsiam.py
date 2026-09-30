@@ -30,7 +30,7 @@ class SimSiam(nn.Module):
             backbone=backbone,
             embedding_dim=embedding_dim,
             encoder_dim=encoder_dim)
-        
+
         self.predictor = nn.Sequential(
             nn.Linear(encoder_dim, pred_dim, bias=False),
             nn.BatchNorm1d(pred_dim),
@@ -39,7 +39,7 @@ class SimSiam(nn.Module):
         )
 
         self.loss_func = nn.CosineSimilarity(dim=1)
-    
+
     def forward(self, view_1: torch.tensor, view_2: torch.tensor):
 
         z1 = self.encoder(view_1)
@@ -52,7 +52,7 @@ class SimSiam(nn.Module):
         loss += self.loss_func(p2, z1.detach()).mean()
         loss *= -0.5
         return loss
-    
+
     def get_encoder(self):
         return deepcopy(self.encoder.backbone)
 

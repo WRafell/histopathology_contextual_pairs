@@ -1,27 +1,25 @@
 from src.utils_common import set_manual_seed
 from src.utils_data import load_dataset, preselect_positive_pairs
-from omegaconf import OmegaConf
+from omegaconf import DictConfig
 import hydra
-import random
+from pathlib import Path
 import pandas as pd
 
 pd.options.mode.chained_assignment = None
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(args: OmegaConf):
+@hydra.main(version_base=None, config_path=".", config_name="config")
+def main(args: DictConfig):
 
     set_manual_seed(random_seed=args.random_seed)
 
 
     """ LOAD DATASET """
     print(f"\nDataset: {args.dataset}")
-    df = load_dataset(args.dataset.lower())
+    df = load_dataset(args.dataset.lower(), args.data_root)
 
-    if isinstance(df.coords[0], str):
-        df['coords'] = [eval(coord) for coord in df.coords]
 
-     
+
     """ SELECT POSITIVE PAIRS BASED ON PROXIMITY """
     # Selecting N patches, where N = batch_size * num_batches
     proximity_levels = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50, 100]
@@ -33,11 +31,14 @@ def main(args: OmegaConf):
     new_train_df = preselect_positive_pairs(
         all_train_df=train_df,
         num_patches=num_patches,
-        proximity_levels=proximity_levels)
+        proximity_levels=proximity_levels,
+        random_seed=args.random_seed)
+    csv_dir = Path(args.data_root) / "csv"
+    csv_dir.mkdir(parents=True, exist_ok=True)
     new_train_df.to_csv(
-        f"./csv/preselected_dataset={args.dataset.lower()}_num-patches={num_patches}_seed={args.random_seed}.csv",
+        csv_dir / f"preselected_dataset={args.dataset.lower()}_num-patches={num_patches}_seed={args.random_seed}.csv",
         index=False)
-    
+
 
     # """ SAVE CSV FILES """
     # for proximity_level in proximity_levels:

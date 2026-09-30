@@ -14,7 +14,7 @@ class MLPHead(torch.nn.Module):
 
     def forward(self, x):
         return self.net(x)
-    
+
 
 class NetworkWrapper(torch.nn.Module):
     def __init__(self, backbone: torch.nn.Module, embedding_dim: int, mlp_hidden_size: int, projector_dim: int):
@@ -27,21 +27,21 @@ class NetworkWrapper(torch.nn.Module):
 
 
 class BYOL(torch.nn.Module):
-    def __init__(self, 
-            backbone: torch.nn.Module, 
-            embedding_dim: int, 
-            mlp_hidden_size: int, 
+    def __init__(self,
+            backbone: torch.nn.Module,
+            embedding_dim: int,
+            mlp_hidden_size: int,
             projector_dim: int,
             momentum: int):
         super().__init__()
         self.online_network = NetworkWrapper(backbone, embedding_dim, mlp_hidden_size, projector_dim)
         self.target_network = NetworkWrapper(backbone, embedding_dim, mlp_hidden_size, projector_dim)
         self.predictor = MLPHead(
-            in_channels=projector_dim, 
-            mlp_hidden_size=mlp_hidden_size, 
+            in_channels=projector_dim,
+            mlp_hidden_size=mlp_hidden_size,
             projector_dim=projector_dim)
         self.momentum = momentum
-        
+
     @torch.no_grad()
     def update_moving_average(self):
         for online_parameter, target_parameter in zip(self.online_network.parameters(), self.target_network.parameters()):
@@ -71,7 +71,7 @@ class BYOL(torch.nn.Module):
         loss = self.loss_function(predictions_from_view_1, targets_to_view_1.detach())
         loss += self.loss_function(predictions_from_view_2, targets_to_view_2.detach())
         return loss.mean()
-    
+
     def get_encoder(self):
         return deepcopy(self.online_network.encoder)
 
