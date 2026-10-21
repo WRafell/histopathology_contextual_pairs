@@ -76,11 +76,11 @@ def compute_mask_boxes(*, level0_coords: np.ndarray, footprint: float, downsampl
     return np.concatenate([start, end], axis=1)
 
 
-def read_tumor_mask(*, mask_path: Path, target_downsample: float) -> tuple[np.ndarray, float]:
-    """Read a tumor mask at the pyramid level closest to ``target_downsample``.
+def read_tumor_mask(*, mask_path: Path, target_downsample: float, tumor_value: int) -> tuple[np.ndarray, float]:
+    """Read an annotation mask at the pyramid level closest to ``target_downsample``.
 
     Returns:
-        The boolean mask (nonzero = tumor) and the level's downsample relative to level 0.
+        The boolean mask (pixel value == ``tumor_value``) and the level's downsample relative to level 0.
     """
     import openslide
 
@@ -88,14 +88,22 @@ def read_tumor_mask(*, mask_path: Path, target_downsample: float) -> tuple[np.nd
         level = slide.get_best_level_for_downsample(target_downsample)
         size = slide.level_dimensions[level]
         region = np.asarray(slide.read_region((0, 0), level, size))[..., 0]
-        return region > 0, float(slide.level_downsamples[level])
+        return region == tumor_value, float(slide.level_downsamples[level])
 
 
 def label_slide_patches(
-    *, slide_patches: pd.DataFrame, mask_path: Path, footprint: float, target_downsample: float, threshold: float
+    *,
+    slide_patches: pd.DataFrame,
+    mask_path: Path,
+    footprint: float,
+    target_downsample: float,
+    tumor_value: int,
+    threshold: float,
 ) -> pd.DataFrame:
     """Return ``tumor_fraction`` and binary ``label`` for one slide's patches (rows kept in order)."""
-    mask, downsample = read_tumor_mask(mask_path=mask_path, target_downsample=target_downsample)
+    mask, downsample = read_tumor_mask(
+        mask_path=mask_path, target_downsample=target_downsample, tumor_value=tumor_value
+    )
     level0_coords = slide_patches[["x_level0", "y_level0"]].to_numpy(dtype=np.float64)
     boxes = compute_mask_boxes(level0_coords=level0_coords, footprint=footprint, downsample=downsample)
     fractions = compute_box_fractions(mask=mask, boxes=boxes)
@@ -130,6 +138,7 @@ def build_slide_rows(
         mask_path=config.mask_dir / f"{slide}{config.mask_suffix}",
         footprint=footprint,
         target_downsample=config.mask_downsample,
+        tumor_value=config.tumor_mask_value,
         threshold=config.tumor_fraction_threshold,
     )
     return pd.DataFrame(
@@ -216,6 +225,10 @@ def main() -> None:
             for slide, slide_patches in patches.groupby("slide", sort=True)
         ]
         frame = pd.concat([future.result() for future in futures], ignore_index=True)
+
+    normal_with_tumor = frame.loc[(frame["slide_label"] == 0) & (frame["label"] == 1), "slide"].unique()
+    if len(normal_with_tumor):
+        raise ValueError(f"Normal slides have tumor patches (check tumor_mask_value): {normal_with_tumor[:5]}")
 
     """ SAVE """
     csv_dir = arguments.output_dir / METADATA_DIRECTORY

@@ -7,5 +7,6 @@ mask_dir: /nas2/lait/1000_Members/wrafell/CAMELYON16/masks
 mask_suffix: _mask.tif
 patch_magnification: 20.0
 mask_downsample: 16        # read masks at the pyramid level nearest to level-0 / 16
+tumor_mask_value: 2        # mask values: 0 background, 1 tissue, 2 tumor
 tumor_fraction_threshold: 0.5
 num_workers: 16

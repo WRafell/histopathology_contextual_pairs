@@ -9,7 +9,7 @@ Inputs (soda, `/nas2/lait/1000_Members/wrafell/CAMELYON16`): `patches_20x_224_pn
 (level-0 offsets), `derived/patch_grid_inputs/runs/abmil_hibou_224_43c8/manifest.csv` (split, slide label),
 `toposlide/inputs/wsi_dim.csv` (slide magnification), `masks/<slide>_mask.tif`. Per slide: footprint =
 224 * magnification / 20 level-0 px; grid index = round(offset / footprint), rejected if off-grid; tumor
-fraction = annotated area within the footprint on the mask level nearest downsample 16; `label` =
+fraction = tumor-valued (2; masks are 0 background, 1 tissue, 2 tumor) area within the footprint on the mask level nearest downsample 16; `label` =
 fraction >= 0.5. Output `<output-dir>/csv/camelyon16_data.csv`.
 
 ## SSL pretraining (`src/train_ssl.py`)

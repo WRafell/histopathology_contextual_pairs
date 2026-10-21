@@ -175,6 +175,7 @@ class Camelyon16MetadataConfig:
     mask_suffix: str
     patch_magnification: float
     mask_downsample: float
+    tumor_mask_value: int
     tumor_fraction_threshold: float
     num_workers: int
 
