@@ -1,0 +1,23 @@
+[project]
+name = "histo-positive-pairs"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "pyrefly"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.pyrefly]
+project-includes = ["src", "tests"]
+python-version = "3.11"
+search-path = ["."]

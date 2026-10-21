@@ -1,20 +1,56 @@
 # Repository map
 
-Inspected/refactored 2026-09-30. No experiments were run. Dataset images and metadata are expected under `local/`; exact layout remains configurable by updating `data_root` and the metadata mapping once supplied.
+Rewritten 2026-10-21 as a functional core with thin entry points; Hydra removed. Smoke-tested
+end to end on synthetic data only; no real experiment has been run with this code.
 
-## Active pipeline
+## SSL pretraining (`src/train_ssl.py`)
 
-- SSL pretraining: `python -m src.train_ssl_model`; Hydra loads `src/config.yaml`. Active sampling is `baseline`, `closest_patch`, or `random_neighbor`.
-- Spatial neighbors: `src/sample_neighbors.py` groups training patches by slide and buckets candidates by maximum absolute coordinate difference (Chebyshev distance). `src/utils_self_supervised.py::NeighborDataset` selects buckets from `minimum_distance` through `maximum_distance`; the native PyTorch loop computes `(1-alpha)*augmentation_loss + alpha*context_loss` in `_calculate_loss` in `src/train_ssl_model.py`.
-- Feature extraction: `python -m src.generate_embeddings`; embeddings and manifest go under `local/embeddings` and `local/csv`.
-- Slide evaluation: `python -m src.train_mil_model`; currently ABMIL only. TransMIL, CLAM-SB, and mean pooling are not implemented.
-- Patch-level linear probe: `src/utils_supervised.py` has dataset/trainer classes, but no command-line entry point.
-- t-SNE/NMI analysis: no entry point found.
+1. Load metadata (`src/data.py::load_patch_metadata`); keep `subset == "train"`.
+2. Anchors: all training patches or `max_anchors` sampled without replacement
+   (`select_anchor_rows`, seeded by `seed`).
+3. Neighbors: `src/neighbors.py::compute_neighbor_table` lists, for every training patch, the
+   same-slide patches at each Chebyshev offset in `[pairing.min_distance, pairing.max_distance]`
+   (any training patch can be a neighbor, not only anchors). Rows are then restricted to anchors.
+4. Each epoch, `select_context_rows` picks the contextual positive of every anchor:
+   - `augmentation` (E0): the anchor itself, so the third view is another augmentation and all
+     conditions encode three views per step.
+   - `random_neighbor` (E1): a uniform existing neighbor; anchors without neighbors fall back to
+     themselves (logged as `self_pair_fraction`).
+5. `PositivePairDataset` returns `(T1(anchor), T2(anchor), T2(context))`. The loss is
+   `(1 - alpha) L(z_anchor, z_aug) + alpha L(z_anchor, z_ctx)` (`ssl_models.py::compute_positive_pair_loss`);
+   the anchor is encoded once. Losses are computed in float32 under fp16 autocast with a `GradScaler`;
+   overflowed steps are skipped and counted (`skipped_fp16_steps`).
+6. LARS with linear warm-up (`optimizer.warmup_epochs`) and cosine decay to 0.1% of
+   `base_learning_rate * batch_size / 256`, set per step. BYOL updates its EMA target after each step.
+7. Outputs: `config.yaml`, `git_commit.txt`, `metrics.jsonl` (per epoch), `checkpoint.pt`
+   (full SSL model, for continuation via `initial_checkpoint`; optimizer state is not restored), `encoder.pt`.
 
-## Data, models, and reproduction
+## Evaluation
 
-Metadata defaults to `local/csv/<dataset>_data.csv`; `data_root` is a config setting. Dataset keys retained from the source are Camelyon16, SEEDP stomach, SEEDP colon, `tcga`, and the `tcga-nsclc` alias. The TCGA alias currently maps to the source's `tcga_data.csv`; split definitions, public/private status, and validation membership cannot be established without the actual metadata and study configs. Relative `img_path` values resolve under `data_root`.
+- `src/extract_embeddings.py`: per-slide `slides/<slide>.pt` with fp16 embeddings, grid coords, and
+  patch labels (`-1` when unknown), plus `manifest.csv`. Uses the SSL run's backbone and image size,
+  deterministic resize + ImageNet normalization.
+- `src/train_mil.py`: ABMIL (Ilse et al. attention, logits + cross-entropy) or mean pooling + linear,
+  Adam with cosine decay, one slide per step, best epoch by validation loss; test accuracy,
+  balanced accuracy, AUROC.
+- `src/linear_probe.py`: linear classifier on labeled patch embeddings (labels `-1` and
+  `ignored_labels` dropped), best epoch by validation loss, same test metrics.
 
-`src/config.yaml` retains source defaults (seed 0, ResNet18, patch resize 64, Barlow Twins, alpha 0.5, 100 epochs). The active native PyTorch trainer supports Barlow Twins, BYOL, SimSiam, and VICReg on one device. DINO model/loss components remain, but DINO training is not integrated because the active data path does not produce the required multi-crop batches.
+## Randomness
 
-No MICCAI Table 1/2 reproduction command, seed list, or results were present. The original shell script chained pretraining, feature extraction, and ABMIL, but depended on missing config/data paths and did not provide reproducible run logging. The refactored config resolves those paths under `local/`; exact dataset locations are still pending.
+| Source | Control |
+| --- | --- |
+| Anchor subsample | `np.random.default_rng(seed)` in `select_anchor_rows` |
+| Neighbor choice per epoch | one `np.random.default_rng(seed)` owned by `train_ssl.main` |
+| Batch order | `torch.Generator().manual_seed(seed + epoch)` per epoch loader |
+| Augmentations | DataLoader worker torch RNG, derived from the loader generator |
+| Model init | global torch RNG seeded by `seed_global_generators(seed)` |
+| MIL / probe order | `torch.Generator().manual_seed(seed)` |
+
+cuDNN kernels are not forced to be deterministic.
+
+## Not implemented yet
+
+- E2/E3 similarity-based neighbor selection with a frozen warm-up encoder.
+- Pair-agreement and boundary-similarity analyses.
+- DINO, TCGA-NSCLC metadata, multi-GPU training (run one job per GPU instead).

@@ -1,4 +1,4 @@
-"""LARS optimizer and its step-based learning-rate schedule."""
+"""LARS optimizer and its warm-up/cosine learning-rate schedule."""
 
 from __future__ import annotations
 
@@ -8,89 +8,75 @@ from collections.abc import Callable, Iterable
 import torch
 from torch import Tensor
 
+REFERENCE_BATCH_SIZE = 256
+FINAL_LEARNING_RATE_FRACTION = 0.001
+LARS_MOMENTUM = 0.9
+LARS_TRUST_COEFFICIENT = 0.001
 
-class AdjustLearningRate:
-    """Set a linear-warmup, cosine-decay learning rate before each step."""
 
-    def __init__(self, *, max_epochs: int, batch_size: int, base_lr: float, num_batches: int) -> None:
-        if min(max_epochs, batch_size, num_batches) < 1:
-            raise ValueError("max_epochs, batch_size, and num_batches must be positive")
-        self.max_steps = max_epochs * num_batches
-        self.warmup_steps = min(10 * num_batches, self.max_steps)
-        self.base_lr = base_lr * batch_size / 256
+def compute_peak_learning_rate(*, base_learning_rate: float, batch_size: int) -> float:
+    """Scale the base learning rate linearly with batch size (``base * B / 256``)."""
+    return base_learning_rate * batch_size / REFERENCE_BATCH_SIZE
 
-    def step(self, optimizer: torch.optim.Optimizer, global_step: int) -> float:
-        """Update all optimizer groups and return the current learning rate."""
-        if not 0 <= global_step < self.max_steps:
-            raise ValueError(f"global_step must be in [0, {self.max_steps})")
-        if global_step < self.warmup_steps:
-            learning_rate = self.base_lr * global_step / max(1, self.warmup_steps)
-        else:
-            decay_steps = max(1, self.max_steps - self.warmup_steps)
-            progress = (global_step - self.warmup_steps) / decay_steps
-            end_lr = self.base_lr * 0.001
-            learning_rate = end_lr + 0.5 * (self.base_lr - end_lr) * (1 + math.cos(math.pi * progress))
-        for group in optimizer.param_groups:
-            group["lr"] = learning_rate
-        return learning_rate
+
+def compute_learning_rate(*, step: int, total_steps: int, warmup_steps: int, peak_learning_rate: float) -> float:
+    """Linear warm-up to ``peak_learning_rate``, then cosine decay to 0.1% of it.
+
+    Raises:
+        ValueError: If ``step`` is outside ``[0, total_steps)``.
+    """
+    if not 0 <= step < total_steps:
+        raise ValueError(f"step must be in [0, {total_steps}), got {step}")
+    if step < warmup_steps:
+        return peak_learning_rate * step / warmup_steps
+    progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+    final = peak_learning_rate * FINAL_LEARNING_RATE_FRACTION
+    return final + 0.5 * (peak_learning_rate - final) * (1 + math.cos(math.pi * progress))
+
+
+def is_bias_or_norm(parameter: Tensor) -> bool:
+    """Return whether a parameter is 1-D (bias or norm), which LARS excludes from decay and adaptation."""
+    return parameter.ndim == 1
 
 
 class LARS(torch.optim.Optimizer):
-    """Layer-wise adaptive rate scaling with momentum."""
+    """Layer-wise adaptive rate scaling with momentum (You et al., 2017)."""
 
     def __init__(
         self,
         params: Iterable[Tensor],
-        lr: float,
-        weight_decay: float = 0.0,
-        momentum: float = 0.9,
-        eta: float = 0.001,
-        weight_decay_filter: Callable[[Tensor], bool] | None = None,
-        lars_adaptation_filter: Callable[[Tensor], bool] | None = None,
+        *,
+        weight_decay: float,
+        is_excluded: Callable[[Tensor], bool] = is_bias_or_norm,
     ) -> None:
-        defaults = {
-            "lr": lr,
-            "weight_decay": weight_decay,
-            "momentum": momentum,
-            "eta": eta,
-            "weight_decay_filter": weight_decay_filter,
-            "lars_adaptation_filter": lars_adaptation_filter,
-        }
-        super().__init__(params, defaults)
+        super().__init__(params, {"lr": 0.0, "weight_decay": weight_decay})
+        self.is_excluded: Callable[[Tensor], bool] = is_excluded
 
     @torch.no_grad()
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # pyrefly: ignore[bad-override]
         loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
-
         for group in self.param_groups:
             for parameter in group["params"]:
                 if parameter.grad is None:
                     continue
                 update = parameter.grad
-                if group["weight_decay_filter"] is None or not group["weight_decay_filter"](parameter):
+                if not self.is_excluded(parameter):
                     update = update.add(parameter, alpha=group["weight_decay"])
-                if group["lars_adaptation_filter"] is None or not group["lars_adaptation_filter"](parameter):
                     parameter_norm = torch.norm(parameter)
                     update_norm = torch.norm(update)
-                    scale = torch.where(
+                    trust_ratio = torch.where(
                         (parameter_norm > 0) & (update_norm > 0),
-                        group["eta"] * parameter_norm / update_norm,
+                        LARS_TRUST_COEFFICIENT * parameter_norm / update_norm,
                         torch.ones_like(parameter_norm),
                     )
-                    update = update * scale
-
+                    update = update * trust_ratio
                 state = self.state[parameter]
                 if "momentum_buffer" not in state:
                     state["momentum_buffer"] = torch.zeros_like(parameter)
                 momentum_buffer = state["momentum_buffer"]
-                momentum_buffer.mul_(group["momentum"]).add_(update)
+                momentum_buffer.mul_(LARS_MOMENTUM).add_(update)
                 parameter.add_(momentum_buffer, alpha=-group["lr"])
         return loss
-
-
-def exclude_bias_and_norm(parameter: Tensor) -> bool:
-    """Return whether LARS should skip decay/adaptation for a parameter."""
-    return parameter.ndim == 1

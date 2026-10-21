@@ -1,0 +1,8 @@
+seed: 0
+device: cuda:0
+embedding_dir: runs/embeddings/REPLACE_ME   # set with --set embedding_dir=...
+aggregator: abmil                           # abmil | mean_pooling
+attention_dim: 128
+learning_rate: 0.001
+weight_decay: 0.01
+max_epochs: 100

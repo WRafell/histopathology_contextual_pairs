@@ -1,0 +1,5 @@
+device: cuda:0
+use_mixed_precision: true
+ssl_run_dir: runs/ssl/REPLACE_ME   # set with --set ssl_run_dir=...
+batch_size: 512
+num_workers: 16

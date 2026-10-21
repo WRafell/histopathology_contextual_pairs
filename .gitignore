@@ -7,3 +7,13 @@
 # Python bytecode.
 __pycache__/
 *.py[cod]
+
+# Run outputs (checkpoints, embeddings, metrics).
+/runs/
+
+# Windows download metadata.
+*:Zone.Identifier
+
+# Tool caches.
+.pytest_cache/
+.ruff_cache/

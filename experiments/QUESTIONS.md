@@ -1,7 +1,17 @@
-# Questions blocking experiment setup
+# Open questions
 
-- What exact metadata and image paths under `local/` should be configured for Camelyon16 and TCGA-NSCLC? The default `local/csv/*.csv` naming is inherited from the source and can be changed.
-- Which source configuration, seeds, and result files reproduce MICCAI Tables 1 and 2? None were included in the clone.
-- What backbone, patch size, magnification, and validation split should be used for the Phase 1 head-to-head?
-- Should the incomplete DINO files be repaired now, or kept out of the initial Barlow Twins comparison? They lack the imported `src.ssl_methods.dino` implementation and the trainer's required multi-crop dataset.
-- SimTriplet and SSLP are absent from the source; the plan requires faithful implementations and method notes before comparison.
+- Where are the Camelyon16 patches and `camelyon16_data.csv` (local path or cluster alias + remote root)?
+  How are the train/val/test splits defined, and is the validation split patient-disjoint?
+- Camelyon16 `label` encoding: which values mean tumor, non-tumor, and unannotated?
+- ViT-S/16 uses the same LARS recipe as ResNet-18. Should ViT-S use AdamW instead?
+- Batch size 256 at 224 px (three views per step) replaces the earlier 1024 at 64 px. Confirm the
+  per-GPU batch size and epoch budget for the warm-up and continuation stages.
+
+# Decisions (2026-10-21)
+
+- The research overview's Experiment 1 (E0–E3, VICReg, Camelyon16) replaces the SimTriplet/SSLP
+  head-to-head as the immediate priority.
+- Encoders start from ImageNet weights; the paper must say so.
+- Patches are 256 px at 20x, resized to 224; the paper must say so.
+- MICCAI numbers are not reproduced; experiments start from this code.
+- E0 uses three augmented views per step (context = anchor), so that compute is matched with E1–E3.

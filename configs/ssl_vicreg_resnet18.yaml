@@ -1,0 +1,38 @@
+# Camelyon16 VICReg pretraining, ResNet-18 (ImageNet init), 256 px patches resized to 224.
+seed: 0
+device: cuda:0
+use_mixed_precision: true
+data:
+  dataset: camelyon16
+  data_root: local
+backbone:
+  name: resnet18
+  is_pretrained: true
+  image_size: 224
+pairing:
+  strategy: random_neighbor  # augmentation (E0) | random_neighbor (E1)
+  min_distance: 1
+  max_distance: 1
+  context_weight: 0.5        # alpha in (1 - alpha) L_aug + alpha L_ctx
+framework: vicreg
+optimizer:
+  base_learning_rate: 0.2    # scaled by batch_size / 256
+  weight_decay: 1.0e-6
+  warmup_epochs: 10
+batch_size: 256
+num_workers: 16
+max_epochs: 100
+max_anchors: 500000
+initial_checkpoint: null     # checkpoint.pt of a warm-up run to continue from
+vicreg:
+  projector_dims: [1024, 1024, 1024]
+  invariance_weight: 25.0
+  variance_weight: 25.0
+  covariance_weight: 1.0
+barlow_twins:
+  projector_dims: [1024, 1024, 1024]
+  off_diagonal_weight: 0.0051
+byol:
+  hidden_dim: 512
+  projection_dim: 128
+  target_momentum: 0.996

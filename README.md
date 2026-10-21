@@ -1,77 +1,84 @@
-# Contextual Positive Pairs for Histopathology
+# Spatial Positive Pairs for Histopathology SSL
 
-Code for self-supervised representation learning with spatially contextual positive patches, plus patch embedding extraction and slide-level multiple instance learning (MIL).
+Self-supervised pretraining of patch encoders where, besides two augmented views of an
+anchor patch, a spatially neighboring patch from the same whole-slide image acts as an
+additional positive:
 
-The active training pipeline uses native PyTorch. Training currently supports Barlow Twins, BYOL, SimSiam, and VICReg with a single device. Positive-pair sampling options are `baseline`, `closest_patch`, and `random_neighbor`. DINO components remain in the source tree, but DINO training and evaluation are not integrated. MIL currently supports ABMIL.
+    L = (1 - alpha) * L(anchor, augmented anchor) + alpha * L(anchor, neighbor)
+
+Frozen patch embeddings are then evaluated with slide-level MIL (ABMIL, mean pooling) and a
+patch-level linear probe. Supported objectives are VICReg, Barlow Twins, and BYOL (all
+negative-free); supported backbones are ResNet-18 and ViT-S/16, both initialized from ImageNet
+weights. Training runs in fp16 mixed precision on CUDA.
 
 ## Setup
-
-Use Python 3.11 with the pinned dependencies:
 
 ```bash
 conda create -n contextual-pairs python=3.11 pip
 conda activate contextual-pairs
 python -m pip install -r requirements.txt
+python -m pip install -e ".[dev]"   # pytest, ruff, pyrefly
 ```
 
-Install a PyTorch build appropriate for your machine if the pinned Torch wheels do not match its CPU/CUDA setup.
+## Data
 
-## Data layout
+Each dataset has one metadata file `<data_root>/csv/<dataset>_data.csv` with one row per patch:
 
-The default data root is `local/`. Dataset metadata CSVs belong in `local/csv/`:
-
-| Dataset key | Metadata file |
+| Column | Meaning |
 | --- | --- |
-| `camelyon16` | `camelyon16_data.csv` |
-| `tcga` / `tcga-nsclc` | `tcga_data.csv` |
-| `seedp-stomach` | `seedp-stomach_data.csv` |
-| `seedp-colon` | `seedp-colon_data.csv` |
+| `img_path` | Patch image, absolute or relative to `data_root` |
+| `subset` | `train`, `val`, or `test` (split at patient level) |
+| `slide` | Slide identifier |
+| `slide_label` | Integer slide class, `0..C-1` |
+| `label` | Integer patch class; empty when unknown (diagnostics only, never used for SSL) |
+| `coords` | Grid coordinates `(x, y)`; Camelyon16 derives them from `<x>_<y>_...` filenames |
 
-The metadata must include the columns consumed by the scripts, including `img_path`, `subset`, `slide`, `slide_label`, and patch `label`. Camelyon16 patch coordinates are inferred from image filenames; other datasets need a `coords` column containing coordinate pairs. Relative image paths are resolved under the data root. Neighbor preparation writes `local/csv/sampled_<dataset>.csv`; model weights, embeddings, and evaluation outputs are also written under `local/`.
-
-Dataset files are not included in this repository. Set `data_root=/path/to/data` to use another location. The data manifest schemas and split definitions should be confirmed for your dataset before training.
+Patches are 256x256 px at 20x and are resized to 224 for the encoder.
 
 ## Workflow
 
-Run commands from the repository root. Hydra options can be appended as `key=value` overrides.
+Every entry point takes `--config <yaml>`, a new `--output-dir` (an existing one is never
+overwritten), and any number of `--set key=value` overrides. The resolved configuration and
+the git commit are written to the output directory.
 
-1. Prepare spatial neighbors from the dataset metadata:
+```bash
+# 1. SSL pretraining (E0: pairing.strategy=augmentation, E1: random_neighbor)
+python -m src.train_ssl --config configs/ssl_vicreg_resnet18.yaml --output-dir runs/ssl/vicreg-r18-e1
 
-   ```bash
-   python -m src.sample_neighbors dataset=camelyon16 data_root=local
-   ```
+# Continue from a warm-up run
+python -m src.train_ssl --config configs/ssl_vicreg_resnet18.yaml --output-dir runs/ssl/vicreg-r18-e1-cont \
+    --set initial_checkpoint=runs/ssl/vicreg-r18-warmup/checkpoint.pt
 
-2. Pretrain an encoder. For example, `closest_patch` samples a spatial neighbor and uses the configured distance range:
+# 2. Per-slide frozen embeddings (backbone and image size are read from the SSL run)
+python -m src.extract_embeddings --config configs/embeddings.yaml --output-dir runs/embeddings/vicreg-r18-e1 \
+    --set ssl_run_dir=runs/ssl/vicreg-r18-e1
 
-   ```bash
-   python -m src.train_ssl_model \
-     dataset=camelyon16 data_root=local \
-     ssl_method=barlow_twins positive_pair_sampling=closest_patch
-   ```
+# 3. Slide-level MIL (abmil | mean_pooling)
+python -m src.train_mil --config configs/mil.yaml --output-dir runs/mil/vicreg-r18-e1-abmil \
+    --set embedding_dir=runs/embeddings/vicreg-r18-e1 --set aggregator=abmil
 
-   Set `positive_pair_sampling=baseline` for augmentation-only pairs or `random_neighbor` to sample a random available neighbor. The default config is `src/config.yaml`; it also defines the seed, backbone, optimizer, image resize, batch size, and training schedule.
+# 4. Patch-level linear probe
+python -m src.linear_probe --config configs/linear_probe.yaml --output-dir runs/probe/vicreg-r18-e1 \
+    --set embedding_dir=runs/embeddings/vicreg-r18-e1
+```
 
-3. Extract patch embeddings using the same dataset and model settings as pretraining:
+## Code layout
 
-   ```bash
-   python -m src.generate_embeddings \
-     dataset=camelyon16 data_root=local \
-     ssl_method=barlow_twins positive_pair_sampling=closest_patch
-   ```
+| Module | Role |
+| --- | --- |
+| `src/config.py` | Typed frozen configurations, YAML loading, `--set` overrides |
+| `src/data.py` | Metadata loading, coordinates, anchor subsampling |
+| `src/neighbors.py` | Chebyshev neighbor table and per-epoch contextual positive selection |
+| `src/transforms.py`, `src/datasets.py` | SSL views and image datasets |
+| `src/backbones.py`, `src/ssl_models.py`, `src/ssl_losses.py` | Encoders, SSL heads, pure loss functions |
+| `src/lars.py`, `src/ssl_training.py` | LARS, learning-rate schedule, fp16 training epoch |
+| `src/embeddings.py`, `src/mil.py`, `src/metrics.py` | Embedding storage, MIL models, metrics |
+| `src/train_ssl.py`, `src/extract_embeddings.py`, `src/train_mil.py`, `src/linear_probe.py` | Entry points |
 
-4. Train and evaluate the configured ABMIL classifier on the frozen embeddings:
+See [experiments/REPO_MAP.md](experiments/REPO_MAP.md) for the control flow and randomness.
 
-   ```bash
-   python -m src.train_mil_model \
-     dataset=camelyon16 data_root=local \
-     ssl_method=barlow_twins positive_pair_sampling=closest_patch
-   ```
+## Checks
 
-Keep model-defining overrides consistent between these commands so the same checkpoint and embedding manifest are selected.
-
-## Repository notes
-
-- `src/` contains the training, sampling, embedding, and MIL code.
-- `experiments/REPO_MAP.md` summarizes the implementation and known gaps; `experiments/QUESTIONS.md` tracks unresolved dataset and experiment-plan questions.
-- `src/ORIGIN.md` records the imported source revision and current integration limits.
-- Do not start experiments until the local data paths and the Phase 1 baseline implementations in the experiment plan are resolved.
+```bash
+ruff format src tests && ruff check src tests && pyrefly check && pytest
+```
