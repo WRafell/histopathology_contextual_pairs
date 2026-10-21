@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from ast import literal_eval
 from pathlib import Path
 
 import numpy as np
@@ -10,35 +9,8 @@ import pandas as pd
 
 METADATA_DIRECTORY = "csv"
 METADATA_SUFFIX = "_data.csv"
-REQUIRED_COLUMNS = frozenset({"img_path", "subset", "slide", "slide_label", "label"})
+REQUIRED_COLUMNS = frozenset({"img_path", "subset", "slide", "slide_label", "label", "grid_x", "grid_y"})
 SUBSETS = ("train", "val", "test")
-
-# Camelyon16 patch filenames start with level-0 pixel offsets "<x>_<y>_..."; patches of
-# 256 px at 20x span 512 level-0 pixels, so dividing by the stride gives grid coordinates.
-CAMELYON16_DATASET = "camelyon16"
-CAMELYON16_GRID_STRIDE = 512
-
-
-def compute_camelyon16_coordinates(image_path: str) -> tuple[int, int]:
-    """Return grid coordinates parsed from a Camelyon16 patch filename.
-
-    Raises:
-        ValueError: If the filename does not start with two integers.
-    """
-    x_value, y_value = map(int, Path(image_path).stem.split("_")[:2])
-    return x_value // CAMELYON16_GRID_STRIDE, y_value // CAMELYON16_GRID_STRIDE
-
-
-def parse_coordinates(value: object) -> tuple[int, int]:
-    """Parse a coordinate pair stored as a tuple, list, or its string form.
-
-    Raises:
-        ValueError: If the value is not a pair.
-    """
-    parsed = literal_eval(value) if isinstance(value, str) else value
-    if not isinstance(parsed, (tuple, list)) or len(parsed) != 2:
-        raise ValueError(f"Expected a coordinate pair, got {value!r}")
-    return int(parsed[0]), int(parsed[1])
 
 
 def resolve_image_path(image_path: str, data_root: Path) -> str:
@@ -48,10 +20,10 @@ def resolve_image_path(image_path: str, data_root: Path) -> str:
 
 
 def load_patch_metadata(dataset: str, data_root: Path) -> pd.DataFrame:
-    """Load ``<data_root>/csv/<dataset>_data.csv`` with resolved paths and grid coordinates.
+    """Load ``<data_root>/csv/<dataset>_data.csv`` with resolved image paths.
 
-    The returned frame has the required columns plus ``coords`` (tuple of ints) and
-    ``slide_id`` (integer code of ``slide``).
+    ``grid_x``/``grid_y`` are integer patch-grid coordinates (adjacent patches differ by 1).
+    The returned frame also has ``slide_id``, the integer code of ``slide``.
 
     Raises:
         FileNotFoundError: If the metadata file is missing.
@@ -69,19 +41,13 @@ def load_patch_metadata(dataset: str, data_root: Path) -> pd.DataFrame:
         raise ValueError(f"{csv_path} has unknown subsets: {sorted(unknown_subsets)}")
 
     frame["img_path"] = [resolve_image_path(path, data_root) for path in frame["img_path"]]
-    if dataset.lower() == CAMELYON16_DATASET:
-        frame["coords"] = [compute_camelyon16_coordinates(path) for path in frame["img_path"]]
-    elif "coords" in frame:
-        frame["coords"] = [parse_coordinates(value) for value in frame["coords"]]
-    else:
-        raise ValueError(f"{csv_path} needs a coords column")
     frame["slide_id"] = pd.factorize(frame["slide"])[0]
     return frame
 
 
 def make_coordinate_array(frame: pd.DataFrame) -> np.ndarray:
-    """Return the ``coords`` column as an ``(N, 2)`` int64 array."""
-    return np.asarray(frame["coords"].tolist(), dtype=np.int64).reshape(-1, 2)
+    """Return ``grid_x``/``grid_y`` as an ``(N, 2)`` int64 array."""
+    return frame[["grid_x", "grid_y"]].to_numpy(dtype=np.int64)
 
 
 def select_anchor_rows(*, frame: pd.DataFrame, max_anchors: int | None, seed: int) -> np.ndarray:

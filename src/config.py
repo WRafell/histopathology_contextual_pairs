@@ -164,6 +164,21 @@ class LinearProbeConfig:
     ignored_labels: tuple[int, ...] = field(default=())
 
 
+@dataclass(frozen=True)
+class Camelyon16MetadataConfig:
+    """Inputs and labeling rule for building the Camelyon16 patch metadata."""
+
+    patch_manifest_glob: str
+    split_manifest: Path
+    slide_dimensions: Path
+    mask_dir: Path
+    mask_suffix: str
+    patch_magnification: float
+    mask_downsample: float
+    tumor_fraction_threshold: float
+    num_workers: int
+
+
 def parse_overrides(overrides: Sequence[str]) -> dict[str, object]:
     """Parse ``a.b=value`` strings into a nested mapping; values are YAML-typed.
 

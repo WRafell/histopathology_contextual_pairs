@@ -1,10 +1,10 @@
-# Camelyon16 VICReg pretraining, ResNet-18 (ImageNet init), 256 px patches resized to 224.
+# Camelyon16 VICReg pretraining, ResNet-18 (ImageNet init), 20x 224 px patches (native size).
 seed: 0
 device: cuda:0
 use_mixed_precision: true
 data:
   dataset: camelyon16
-  data_root: local
+  data_root: runs/metadata/camelyon16_20x_224
 backbone:
   name: resnet18
   is_pretrained: true

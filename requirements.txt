@@ -1,5 +1,7 @@
 huggingface_hub==0.26.2
 numpy==1.24.4
+openslide-bin==4.0.1.2
+openslide-python==1.4.6
 pandas==1.5.3
 Pillow==11.0.0
 PyYAML==6.0.3

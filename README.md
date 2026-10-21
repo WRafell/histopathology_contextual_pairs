@@ -30,10 +30,18 @@ Each dataset has one metadata file `<data_root>/csv/<dataset>_data.csv` with one
 | `subset` | `train`, `val`, or `test` (split at patient level) |
 | `slide` | Slide identifier |
 | `slide_label` | Integer slide class, `0..C-1` |
-| `label` | Integer patch class; empty when unknown (diagnostics only, never used for SSL) |
-| `coords` | Grid coordinates `(x, y)`; Camelyon16 derives them from `<x>_<y>_...` filenames |
+| `label` | Integer patch class, `-1`/empty when unknown (diagnostics only, never used for SSL) |
+| `grid_x`, `grid_y` | Integer patch-grid coordinates; spatially adjacent patches differ by 1 |
 
-Patches are 256x256 px at 20x and are resized to 224 for the encoder.
+Camelyon16 uses 224x224 px patches at 20x (no resize). Its metadata is built from the
+patch manifests, the slide split, and the tumor masks (a patch is tumor when at least half
+of its area is annotated):
+
+```bash
+sbatch scripts/slurm/build_camelyon16_metadata.sh   # writes runs/metadata/camelyon16_20x_224/
+```
+
+Then pass `--set data.data_root=runs/metadata/camelyon16_20x_224` to SSL training.
 
 ## Workflow
 
