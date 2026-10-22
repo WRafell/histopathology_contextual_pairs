@@ -2,6 +2,7 @@
 
 Usage:
     python -m src.train_ssl --config configs/ssl_vicreg_resnet18.yaml --output-dir runs/ssl/<name> [--set key=value]
+    torchrun --standalone --nproc-per-node <gpus> -m src.train_ssl ...   # data parallel; batch_size is per GPU
 """
 
 from __future__ import annotations
@@ -10,7 +11,8 @@ import time
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import DataLoader, DistributedSampler
 
 from src.backbones import make_backbone
 from src.cli import (
@@ -19,13 +21,17 @@ from src.cli import (
     make_run_directory,
     parse_run_arguments,
     seed_global_generators,
+    select_device,
+    start_distributed,
+    stop_distributed,
+    wait_for_all_processes,
 )
 from src.config import PairingStrategy, SSLTrainConfig, load_config, save_config
 from src.data import load_patch_metadata, make_coordinate_array, select_anchor_rows
 from src.datasets import PositivePairDataset
 from src.lars import LARS, compute_peak_learning_rate
 from src.neighbors import compute_neighbor_table, select_context_rows
-from src.ssl_models import make_ssl_model
+from src.ssl_models import PositivePairLoss, make_ssl_model
 from src.ssl_training import LearningRateSchedule, train_one_epoch
 from src.transforms import make_view_transforms
 
@@ -34,15 +40,23 @@ ENCODER_FILE = "encoder.pt"
 METRICS_FILE = "metrics.jsonl"
 
 
+def make_loader_seed(*, seed: int, epoch: int, rank: int) -> int:
+    """Return a distinct DataLoader seed (worker augmentation RNG) per run seed, epoch, and process."""
+    return int(np.random.SeedSequence([seed, epoch, rank]).generate_state(1)[0])
+
+
 def main() -> None:
-    """Run one SSL pretraining job."""
+    """Run one SSL pretraining job (one process, or one process per GPU under ``torchrun``)."""
     """ PARSE ARGS """
     arguments = parse_run_arguments(__doc__ or "")
+    context = start_distributed()
     config = load_config(SSLTrainConfig, arguments.config_path, arguments.overrides)
-    make_run_directory(arguments.output_dir)
-    save_config(config, arguments.output_dir / RESOLVED_CONFIG_FILE)
+    if context.is_main:
+        make_run_directory(arguments.output_dir)
+        save_config(config, arguments.output_dir / RESOLVED_CONFIG_FILE)
+    wait_for_all_processes(context)
     seed_global_generators(config.seed)
-    device = torch.device(config.device)
+    device = select_device(configured_device=config.device, context=context)
     use_mixed_precision = config.use_mixed_precision and device.type == "cuda"
 
     """ LOAD DATA """
@@ -60,8 +74,10 @@ def main() -> None:
         )[anchor_rows]
     image_paths = train_frame["img_path"].tolist()
     first_transform, second_transform = make_view_transforms(image_size=config.backbone.image_size)
+    # Same seed on every process, so all processes pick the same contextual positives.
     pairing_generator = np.random.default_rng(config.seed)
-    print(f"{len(anchor_rows)} anchors from {train_frame['slide'].nunique()} training slides")
+    if context.is_main:
+        print(f"{len(anchor_rows)} anchors from {train_frame['slide'].nunique()} training slides")
 
     """ BUILD MODEL """
     backbone, embedding_dim = make_backbone(
@@ -71,16 +87,22 @@ def main() -> None:
     if config.initial_checkpoint is not None:
         model.load_state_dict(torch.load(config.initial_checkpoint, map_location="cpu", weights_only=True)["model"])
     model.to(device)
+    loss_module: torch.nn.Module = PositivePairLoss(model)
+    if context.world_size > 1:
+        # ponytail: SSL loss and BatchNorm statistics are per GPU (batch_size each); gather embeddings
+        # and use SyncBatchNorm if the global-batch loss is needed.
+        loss_module = DistributedDataParallel(loss_module, device_ids=[device.index] if device.type == "cuda" else None)
     optimizer = LARS(model.parameters(), weight_decay=config.optimizer.weight_decay)
     scaler = torch.cuda.amp.GradScaler(enabled=use_mixed_precision)
-    steps_per_epoch = len(anchor_rows) // config.batch_size
+    global_batch_size = config.batch_size * context.world_size
+    steps_per_epoch = (len(anchor_rows) // context.world_size) // config.batch_size
     if steps_per_epoch == 0:
-        raise ValueError(f"{len(anchor_rows)} anchors cannot fill one batch of {config.batch_size}")
+        raise ValueError(f"{len(anchor_rows)} anchors cannot fill one batch of {global_batch_size}")
     schedule = LearningRateSchedule(
         total_steps=config.max_epochs * steps_per_epoch,
         warmup_steps=config.optimizer.warmup_epochs * steps_per_epoch,
         peak_learning_rate=compute_peak_learning_rate(
-            base_learning_rate=config.optimizer.base_learning_rate, batch_size=config.batch_size
+            base_learning_rate=config.optimizer.base_learning_rate, batch_size=global_batch_size
         ),
     )
 
@@ -103,17 +125,27 @@ def main() -> None:
             first_transform=first_transform,
             second_transform=second_transform,
         )
+        sampler = DistributedSampler(
+            dataset,
+            num_replicas=context.world_size,
+            rank=context.rank,
+            shuffle=True,
+            seed=config.seed,
+            drop_last=True,
+        )
+        sampler.set_epoch(epoch)
         loader = DataLoader(
             dataset,
             batch_size=config.batch_size,
-            shuffle=True,
+            sampler=sampler,
             drop_last=True,
             num_workers=config.num_workers,
             pin_memory=device.type == "cuda",
-            generator=torch.Generator().manual_seed(config.seed + epoch),
+            generator=torch.Generator().manual_seed(make_loader_seed(seed=config.seed, epoch=epoch, rank=context.rank)),
         )
         result = train_one_epoch(
             model=model,
+            loss_module=loss_module,
             loader=loader,
             optimizer=optimizer,
             scaler=scaler,
@@ -124,6 +156,8 @@ def main() -> None:
             use_mixed_precision=use_mixed_precision,
         )
         step = result.next_step
+        if not context.is_main:
+            continue
         torch.save({"model": model.state_dict(), "epoch": epoch + 1}, arguments.output_dir / CHECKPOINT_FILE)
         torch.save(model.backbone.state_dict(), arguments.output_dir / ENCODER_FILE)
         record: dict[str, object] = {
@@ -135,7 +169,8 @@ def main() -> None:
             "seconds": time.perf_counter() - started_at,
         }
         append_json_line(arguments.output_dir / METRICS_FILE, record)
-        print(record)
+        print(record, flush=True)
+    stop_distributed(context)
 
 
 if __name__ == "__main__":

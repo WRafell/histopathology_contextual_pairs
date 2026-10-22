@@ -38,7 +38,12 @@ fraction >= 0.5. Output `<output-dir>/csv/camelyon16_data.csv`.
    are computed in float32 under fp16 autocast with a `GradScaler`; overflowed steps are skipped and counted (`skipped_fp16_steps`).
 6. LARS with linear warm-up (`optimizer.warmup_epochs`) and cosine decay to 0.1% of
    `base_learning_rate * batch_size / 256`, set per step. BYOL updates its EMA target after each step.
-7. Outputs: `config.yaml`, `git_commit.txt`, `metrics.jsonl` (per epoch), `checkpoint.pt`
+7. Multi-GPU: under `torchrun`, one process per GPU; `batch_size` is per GPU, the LR scales with the
+   global batch (`batch_size * world_size`), a `DistributedSampler` splits the anchors, and gradients
+   are averaged by DistributedDataParallel around `ssl_models.py::PositivePairLoss`. The SSL loss and
+   BatchNorm statistics are per GPU (no embedding gather, no SyncBatchNorm). All processes draw the same
+   contextual positives; only rank 0 writes outputs, and the logged loss is rank 0's.
+8. Outputs: `config.yaml`, `git_commit.txt`, `metrics.jsonl` (per epoch), `checkpoint.pt`
    (full SSL model, for continuation via `initial_checkpoint`; optimizer state is not restored), `encoder.pt`.
 
 ## Evaluation
@@ -58,8 +63,8 @@ fraction >= 0.5. Output `<output-dir>/csv/camelyon16_data.csv`.
 | --- | --- |
 | Anchor subsample | `np.random.default_rng(seed)` in `select_anchor_rows` |
 | Neighbor choice per epoch | one `np.random.default_rng(seed)` owned by `train_ssl.main` |
-| Batch order | `torch.Generator().manual_seed(seed + epoch)` per epoch loader |
-| Augmentations | DataLoader worker torch RNG, derived from the loader generator |
+| Batch order and per-GPU shard | `DistributedSampler(seed=seed)` with `set_epoch(epoch)` |
+| Augmentations | DataLoader worker torch RNG, from a loader generator seeded by `SeedSequence([seed, epoch, rank])` |
 | Model init | global torch RNG seeded by `seed_global_generators(seed)` |
 | MIL / probe order | `torch.Generator().manual_seed(seed)` |
 
@@ -69,4 +74,4 @@ cuDNN kernels are not forced to be deterministic.
 
 - E2/E3 similarity-based neighbor selection with a frozen warm-up encoder.
 - Pair-agreement and boundary-similarity analyses.
-- DINO, TCGA-NSCLC metadata, multi-GPU training (run one job per GPU instead).
+- DINO, TCGA-NSCLC metadata, multi-node training, global-batch SSL loss across GPUs.

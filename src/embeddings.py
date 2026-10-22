@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,7 +36,12 @@ def encode_images(
     encoder.eval()
     outputs: list[Tensor] = []
     for images in loader:
-        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_mixed_precision):
+        autocast = (
+            torch.autocast(device_type=device.type, dtype=torch.float16)
+            if use_mixed_precision
+            else contextlib.nullcontext()
+        )
+        with autocast:
             outputs.append(encoder(images.to(device, non_blocking=True)).half().cpu())
     return torch.cat(outputs)
 

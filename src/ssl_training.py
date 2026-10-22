@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 
 import torch
@@ -9,7 +10,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from src.lars import compute_learning_rate
-from src.ssl_models import BYOLModel, SSLModel, compute_positive_pair_loss
+from src.ssl_models import BYOLModel
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ def set_learning_rate(optimizer: torch.optim.Optimizer, learning_rate: float) ->
 def train_one_epoch(
     *,
     model: nn.Module,
+    loss_module: nn.Module,
     loader: DataLoader[tuple[torch.Tensor, ...]],
     optimizer: torch.optim.Optimizer,
     scaler: torch.cuda.amp.GradScaler,
@@ -51,12 +53,13 @@ def train_one_epoch(
 ) -> EpochResult:
     """Run one epoch; updates ``model``, ``optimizer``, and ``scaler`` in place.
 
-    Batches are ``(anchor, augmented)`` or ``(anchor, augmented, context)`` views.
+    ``loss_module`` is ``PositivePairLoss(model)``, possibly wrapped in DistributedDataParallel; the
+    returned mean loss is this process's own. Batches are ``(anchor, augmented)`` or
+    ``(anchor, augmented, context)`` views.
 
     Steps whose fp16 gradients overflow are skipped by the scaler and counted.
     """
     model.train()
-    ssl_model: SSLModel = model  # pyrefly: ignore[bad-assignment]
     total_loss = 0.0
     num_skipped_steps = 0
     step = first_step
@@ -70,13 +73,17 @@ def train_one_epoch(
         )
         set_learning_rate(optimizer, learning_rate)
         optimizer.zero_grad(set_to_none=True)
-        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_mixed_precision):
-            loss = compute_positive_pair_loss(
-                model=ssl_model,
-                anchor_view=anchor_view.to(device, non_blocking=True),
-                augmented_view=augmented_view.to(device, non_blocking=True),
-                context_view=context_views[0].to(device, non_blocking=True) if context_views else None,
-                context_weight=context_weight,
+        autocast = (
+            torch.autocast(device_type=device.type, dtype=torch.float16)
+            if use_mixed_precision
+            else contextlib.nullcontext()
+        )
+        with autocast:
+            loss = loss_module(
+                anchor_view.to(device, non_blocking=True),
+                augmented_view.to(device, non_blocking=True),
+                context_views[0].to(device, non_blocking=True) if context_views else None,
+                context_weight,
             )
         scale_before = scaler.get_scale()
         scaler.scale(loss).backward()

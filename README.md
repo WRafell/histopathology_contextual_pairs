@@ -54,6 +54,10 @@ the git commit are written to the output directory.
 #    plain two-view SSL without a context view: --set pairing.context_weight=0)
 python -m src.train_ssl --config configs/ssl_vicreg_resnet18.yaml --output-dir runs/ssl/vicreg-r18-e1
 
+# Same on several GPUs (batch_size is per GPU); on Slurm see scripts/slurm/train_ssl.sh
+torchrun --standalone --nproc-per-node 4 -m src.train_ssl --config configs/ssl_vicreg_resnet18.yaml \
+    --output-dir runs/ssl/vicreg-r18-e1
+
 # Continue from a warm-up run
 python -m src.train_ssl --config configs/ssl_vicreg_resnet18.yaml --output-dir runs/ssl/vicreg-r18-e1-cont \
     --set initial_checkpoint=runs/ssl/vicreg-r18-warmup/checkpoint.pt

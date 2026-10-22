@@ -162,6 +162,26 @@ def make_ssl_model(*, config: SSLTrainConfig, backbone: nn.Module, embedding_dim
     raise ValueError(f"Unsupported SSL framework: {config.framework}")
 
 
+class PositivePairLoss(nn.Module):
+    """Expose ``compute_positive_pair_loss`` as ``forward``, so that DistributedDataParallel syncs its gradients."""
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model: nn.Module = model
+
+    def forward(
+        self, anchor_view: Tensor, augmented_view: Tensor, context_view: Tensor | None, context_weight: float
+    ) -> Tensor:
+        ssl_model: SSLModel = self.model  # pyrefly: ignore[bad-assignment]
+        return compute_positive_pair_loss(
+            model=ssl_model,
+            anchor_view=anchor_view,
+            augmented_view=augmented_view,
+            context_view=context_view,
+            context_weight=context_weight,
+        )
+
+
 def compute_positive_pair_loss(
     *,
     model: SSLModel,
