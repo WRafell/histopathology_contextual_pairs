@@ -49,8 +49,9 @@ def main() -> None:
     frame = load_patch_metadata(config.data.dataset, config.data.data_root)
     train_frame = frame[frame["subset"] == "train"].reset_index(drop=True)
     anchor_rows = select_anchor_rows(frame=train_frame, max_anchors=config.max_anchors, seed=config.seed)
+    has_context_view = config.pairing.context_weight > 0.0
     neighbor_table = None
-    if config.pairing.strategy is not PairingStrategy.AUGMENTATION:
+    if has_context_view and config.pairing.strategy is not PairingStrategy.AUGMENTATION:
         neighbor_table = compute_neighbor_table(
             slide_ids=train_frame["slide_id"].to_numpy(),
             coords=make_coordinate_array(train_frame),
@@ -87,12 +88,14 @@ def main() -> None:
     step = 0
     for epoch in range(config.max_epochs):
         started_at = time.perf_counter()
-        context_rows = select_context_rows(
-            strategy=config.pairing.strategy,
-            anchor_rows=anchor_rows,
-            neighbor_table=neighbor_table,
-            generator=pairing_generator,
-        )
+        context_rows = None
+        if has_context_view:
+            context_rows = select_context_rows(
+                strategy=config.pairing.strategy,
+                anchor_rows=anchor_rows,
+                neighbor_table=neighbor_table,
+                generator=pairing_generator,
+            )
         dataset = PositivePairDataset(
             image_paths=image_paths,
             anchor_rows=anchor_rows,
@@ -128,7 +131,7 @@ def main() -> None:
             "loss": result.mean_loss,
             "learning_rate": result.last_learning_rate,
             "skipped_fp16_steps": result.num_skipped_steps,
-            "self_pair_fraction": float(np.mean(context_rows == anchor_rows)),
+            "self_pair_fraction": None if context_rows is None else float(np.mean(context_rows == anchor_rows)),
             "seconds": time.perf_counter() - started_at,
         }
         append_json_line(arguments.output_dir / METRICS_FILE, record)

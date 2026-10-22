@@ -12,6 +12,13 @@ BLUR_SIGMA = (0.1, 5.0)
 COLOR_JITTER_PROBABILITY = 0.5
 BLUR_PROBABILITY = 0.2
 FLIP_PROBABILITY = 0.5
+NUM_QUARTER_TURNS = 4
+
+
+def rotate_by_random_quarter_turns(image: torch.Tensor) -> torch.Tensor:
+    """Rotate a ``(..., H, W)`` image by ``k * 90`` degrees, ``k`` uniform in ``0..3`` (global torch RNG)."""
+    quarter_turns = int(torch.randint(NUM_QUARTER_TURNS, size=()).item())
+    return torch.rot90(image, k=quarter_turns, dims=(-2, -1))
 
 
 def make_view_transform(*, image_size: int, min_crop_scale: float, grayscale_probability: float) -> v2.Compose:
@@ -26,6 +33,7 @@ def make_view_transform(*, image_size: int, min_crop_scale: float, grayscale_pro
                 interpolation=InterpolationMode.BICUBIC,
                 antialias=True,
             ),
+            v2.Lambda(rotate_by_random_quarter_turns),
             v2.RandomHorizontalFlip(p=FLIP_PROBABILITY),
             v2.RandomVerticalFlip(p=FLIP_PROBABILITY),
             v2.RandomApply(

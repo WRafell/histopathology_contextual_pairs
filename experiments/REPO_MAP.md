@@ -25,10 +25,17 @@ fraction >= 0.5. Output `<output-dir>/csv/camelyon16_data.csv`.
      conditions encode three views per step.
    - `random_neighbor` (E1): a uniform existing neighbor; anchors without neighbors fall back to
      themselves (logged as `self_pair_fraction`).
+   - `pairing.context_weight: 0` drops the context view: items are `(T1(anchor), T2(anchor))` and the
+     loss is plain two-view `L(z_anchor, z_aug)` (standard VICReg/Barlow/BYOL); no neighbor table is
+     built and `self_pair_fraction` is logged as null.
 5. `PositivePairDataset` returns `(T1(anchor), T2(anchor), T2(context))`. The loss is
    `(1 - alpha) L(z_anchor, z_aug) + alpha L(z_anchor, z_ctx)` (`ssl_models.py::compute_positive_pair_loss`);
-   the anchor is encoded once. Losses are computed in float32 under fp16 autocast with a `GradScaler`;
-   overflowed steps are skipped and counted (`skipped_fp16_steps`).
+   the anchor is encoded once. Views (`src/transforms.py`), in order: RandomResizedCrop to `image_size`
+   (bicubic, area scale 0.8–1 for T1, 0.6–1 for T2), rotation by k·90° (k uniform in 0..3), horizontal
+   and vertical flips (p 0.5 each), ColorJitter (brightness 0.4, contrast 0.4, saturation 0.2, hue 0.1;
+   p 0.5), grayscale (p 0.1 T1, 0.2 T2), Gaussian blur (kernel 5×9, σ 0.1–5; p 0.2), ImageNet
+   normalization. Elastic distortion is excluded on purpose (it changes nuclear morphology). Losses
+   are computed in float32 under fp16 autocast with a `GradScaler`; overflowed steps are skipped and counted (`skipped_fp16_steps`).
 6. LARS with linear warm-up (`optimizer.warmup_epochs`) and cosine decay to 0.1% of
    `base_learning_rate * batch_size / 256`, set per step. BYOL updates its EMA target after each step.
 7. Outputs: `config.yaml`, `git_commit.txt`, `metrics.jsonl` (per epoch), `checkpoint.pt`

@@ -14,3 +14,4 @@
 - Camelyon16 uses the existing 20x 224 px patches on soda at native size (no 256 px set exists).
 - MICCAI numbers are not reproduced; experiments start from this code.
 - E0 uses three augmented views per step (context = anchor), so that compute is matched with E1–E3.
+  Plain two-view E0 (`pairing.context_weight=0`) is supported for a later standard-baseline run.

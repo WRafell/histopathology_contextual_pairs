@@ -6,3 +6,5 @@
 - State that patch tumor labels (diagnostics only) mark patches with >= 50% annotated tumor area, and that the
   validation split (27 slides) is drawn from the official training slides at slide level (no patient IDs).
 - State that training uses fp16 mixed precision.
+- State the augmentations: crop (scale 0.8–1 / 0.6–1), random 90° rotation, flips, color jitter,
+  grayscale, blur; no elastic distortion (it alters nuclear morphology).

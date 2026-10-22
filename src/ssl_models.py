@@ -163,11 +163,26 @@ def make_ssl_model(*, config: SSLTrainConfig, backbone: nn.Module, embedding_dim
 
 
 def compute_positive_pair_loss(
-    *, model: SSLModel, anchor_view: Tensor, augmented_view: Tensor, context_view: Tensor, context_weight: float
+    *,
+    model: SSLModel,
+    anchor_view: Tensor,
+    augmented_view: Tensor,
+    context_view: Tensor | None,
+    context_weight: float,
 ) -> Tensor:
-    """Return ``(1 - alpha) L(anchor, augmented) + alpha L(anchor, context)``, encoding each view once."""
+    """Return ``(1 - alpha) L(anchor, augmented) + alpha L(anchor, context)``, encoding each view once.
+
+    Without ``context_view`` (only valid for ``context_weight == 0``), returns the plain two-view loss.
+
+    Raises:
+        ValueError: If ``context_view`` is missing while ``context_weight > 0``.
+    """
     anchor = model.encode(anchor_view)
     augmentation_loss = model.compute_pair_loss(anchor, model.encode(augmented_view))
+    if context_view is None:
+        if context_weight != 0.0:
+            raise ValueError(f"context_view is required for context_weight={context_weight}")
+        return augmentation_loss
     context_loss = model.compute_pair_loss(anchor, model.encode(context_view))
     return combine_pair_losses(
         augmentation_loss=augmentation_loss, context_loss=context_loss, context_weight=context_weight

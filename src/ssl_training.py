@@ -40,7 +40,7 @@ def set_learning_rate(optimizer: torch.optim.Optimizer, learning_rate: float) ->
 def train_one_epoch(
     *,
     model: nn.Module,
-    loader: DataLoader[tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+    loader: DataLoader[tuple[torch.Tensor, ...]],
     optimizer: torch.optim.Optimizer,
     scaler: torch.cuda.amp.GradScaler,
     schedule: LearningRateSchedule,
@@ -51,6 +51,8 @@ def train_one_epoch(
 ) -> EpochResult:
     """Run one epoch; updates ``model``, ``optimizer``, and ``scaler`` in place.
 
+    Batches are ``(anchor, augmented)`` or ``(anchor, augmented, context)`` views.
+
     Steps whose fp16 gradients overflow are skipped by the scaler and counted.
     """
     model.train()
@@ -59,7 +61,7 @@ def train_one_epoch(
     num_skipped_steps = 0
     step = first_step
     learning_rate = 0.0
-    for anchor_view, augmented_view, context_view in loader:
+    for anchor_view, augmented_view, *context_views in loader:
         learning_rate = compute_learning_rate(
             step=step,
             total_steps=schedule.total_steps,
@@ -73,7 +75,7 @@ def train_one_epoch(
                 model=ssl_model,
                 anchor_view=anchor_view.to(device, non_blocking=True),
                 augmented_view=augmented_view.to(device, non_blocking=True),
-                context_view=context_view.to(device, non_blocking=True),
+                context_view=context_views[0].to(device, non_blocking=True) if context_views else None,
                 context_weight=context_weight,
             )
         scale_before = scaler.get_scale()

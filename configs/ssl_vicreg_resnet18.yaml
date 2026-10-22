@@ -13,7 +13,7 @@ pairing:
   strategy: random_neighbor  # augmentation (E0) | random_neighbor (E1)
   min_distance: 1
   max_distance: 1
-  context_weight: 0.5        # alpha in (1 - alpha) L_aug + alpha L_ctx
+  context_weight: 0.5        # alpha in (1 - alpha) L_aug + alpha L_ctx; 0 = two views, no context view
 framework: vicreg
 optimizer:
   base_learning_rate: 0.2    # scaled by batch_size / 256
