@@ -1,0 +1,10 @@
+# TCGA-NSCLC (LUAD = 0 vs. LUSC = 1): primary-tumor diagnostic (FFPE, DX) slides from the GDC download
+# manifests on soda, split at patient level, stratified by class. The committed result is
+# configs/splits/tcga_nsclc_split.csv.
+luad_manifest: /nas2/lait/1000_Members/wrafell/TCGA/LUAD/gdc_manifest.tsv
+lusc_manifest: /nas2/lait/1000_Members/wrafell/TCGA/LUSC/gdc_manifest.tsv
+slide_type_prefix: DX        # diagnostic slides; TS/BS are frozen sections
+sample_type_codes: ["01"]    # primary solid tumor (drops one recurrent-tumor LUAD slide)
+val_fraction: 0.1
+test_fraction: 0.2
+seed: 0

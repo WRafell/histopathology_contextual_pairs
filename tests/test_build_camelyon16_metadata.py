@@ -1,25 +1,11 @@
 import numpy as np
-import pytest
 
-from src.build_camelyon16_metadata import (
-    compute_box_fractions,
-    compute_grid_coordinates,
-    compute_mask_boxes,
-    normalize_slide_name,
-)
+from src.build_camelyon16_metadata import compute_box_fractions, compute_mask_boxes, normalize_slide_name
 
 
 def test_normalize_slide_name() -> None:
     assert normalize_slide_name("normal-001") == "normal_001"
     assert normalize_slide_name("/x/images/tumor_002.tif") == "tumor_002"
-
-
-def test_grid_coordinates_from_fractional_footprint() -> None:
-    footprint = 224 * 41.13635 / 20
-    level0 = np.array([[1382, 2764], [2764, 1382]])
-    assert compute_grid_coordinates(level0_coords=level0, footprint=footprint).tolist() == [[3, 6], [6, 3]]
-    with pytest.raises(ValueError, match="off the grid"):
-        compute_grid_coordinates(level0_coords=np.array([[230.0, 0.0]]), footprint=footprint)
 
 
 def test_box_fractions() -> None:

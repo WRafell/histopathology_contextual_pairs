@@ -8,3 +8,6 @@
 - State that training uses fp16 mixed precision.
 - State the augmentations: crop (scale 0.8–1 / 0.6–1), random 90° rotation, flips, color jitter,
   grayscale, blur; no elastic distortion (it alters nuclear morphology).
+- State the TCGA-NSCLC data: 1052 primary-tumor diagnostic (FFPE) slides of 956 patients (LUAD 540 slides,
+  LUSC 512), split at patient level and stratified by class into 70/10/20 train/val/test (668/96/192 patients);
+  reviewer R3 noted that the validation split was not specified. No patch labels, so no patch-level probe on TCGA-NSCLC.

@@ -1,0 +1,6 @@
+# TCGA-NSCLC 20x 224 px patches on soda (/nas2), made by the patcher that made the Camelyon16 patches
+# (scripts/slurm/patch_tcga_nsclc.sh). Splits and slide labels come from the committed patient-level split.
+patch_manifest_glob: /nas2/lait/1000_Members/wrafell/TCGA/NSCLC/patches_20x_224_png/patch_manifest_shard*.csv
+split_file: configs/splits/tcga_nsclc_split.csv
+patch_magnification: 20.0
+num_workers: 16

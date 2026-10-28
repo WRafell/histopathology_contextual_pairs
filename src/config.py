@@ -180,6 +180,29 @@ class Camelyon16MetadataConfig:
     num_workers: int
 
 
+@dataclass(frozen=True)
+class TCGANSCLCSplitConfig:
+    """Slide selection and the patient-level train/val/test split of TCGA-NSCLC (LUAD vs. LUSC)."""
+
+    luad_manifest: Path
+    lusc_manifest: Path
+    slide_type_prefix: str
+    sample_type_codes: tuple[str, ...]
+    val_fraction: float
+    test_fraction: float
+    seed: int
+
+
+@dataclass(frozen=True)
+class TCGANSCLCMetadataConfig:
+    """Inputs for building the TCGA-NSCLC patch metadata."""
+
+    patch_manifest_glob: str
+    split_file: Path
+    patch_magnification: float
+    num_workers: int
+
+
 def parse_overrides(overrides: Sequence[str]) -> dict[str, object]:
     """Parse ``a.b=value`` strings into a nested mapping; values are YAML-typed.
 

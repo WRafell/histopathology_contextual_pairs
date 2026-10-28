@@ -12,6 +12,22 @@ Inputs (soda, `/nas2/lait/1000_Members/wrafell/CAMELYON16`): `patches_20x_224_pn
 fraction = tumor-valued (2; masks are 0 background, 1 tissue, 2 tumor) area within the footprint on the mask level nearest downsample 16; `label` =
 fraction >= 0.5. Output `<output-dir>/csv/camelyon16_data.csv`.
 
+## TCGA-NSCLC split and metadata
+
+- `src/make_tcga_nsclc_split.py` (`configs/tcga_nsclc_split.yaml`): reads the LUAD and LUSC GDC download
+  manifests on soda, keeps diagnostic slides (slide type `DX*`) of primary tumors (sample type `01`), labels
+  LUAD 0 and LUSC 1, and splits patients (barcode `TCGA-XX-XXXX`) per class into 70/10/20 train/val/test
+  after one `np.random.default_rng(0)` shuffle per class in label order. Result committed as
+  `configs/splits/tcga_nsclc_split.csv`: 1052 slides, 956 patients (train 334+334, val 48+48, test 96+96
+  patients LUAD+LUSC; 730/98/224 slides).
+- `scripts/link_tcga_nsclc_images.sh` links the split slides into `TCGA/NSCLC/images/`;
+  `scripts/slurm/patch_tcga_nsclc.sh` runs the external patcher snapshot that made the Camelyon16 patches
+  (20x, 224 px, stride 224, same tissue filter) and records its sha256 in the output.
+- `src/build_tcga_nsclc_metadata.py` (`configs/tcga_nsclc_metadata.yaml`): base magnification = 10 / MPP
+  (objective power as fallback), read from each WSI as the patcher does; footprint = 224 * base / 20;
+  grid as for Camelyon16 (`src/patch_grid.py`). `label` is -1 (no patch annotations), so no linear probe on
+  TCGA-NSCLC. Split slides without patches go to `slides_without_patches.csv`.
+
 ## SSL pretraining (`src/train_ssl.py`)
 
 1. Load metadata (`src/data.py::load_patch_metadata`); keep `subset == "train"`.
@@ -74,4 +90,4 @@ cuDNN kernels are not forced to be deterministic.
 
 - E2/E3 similarity-based neighbor selection with a frozen warm-up encoder.
 - Pair-agreement and boundary-similarity analyses.
-- DINO, TCGA-NSCLC metadata, multi-node training, global-batch SSL loss across GPUs.
+- DINO, multi-node training, global-batch SSL loss across GPUs.

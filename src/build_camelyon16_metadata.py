@@ -9,7 +9,6 @@ Writes ``<output-dir>/csv/camelyon16_data.csv``; use ``<output-dir>`` as ``data.
 
 from __future__ import annotations
 
-import glob
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -19,34 +18,15 @@ import pandas as pd
 from src.cli import RESOLVED_CONFIG_FILE, make_run_directory, parse_run_arguments
 from src.config import Camelyon16MetadataConfig, load_config, save_config
 from src.data import METADATA_DIRECTORY, METADATA_SUFFIX
+from src.patch_grid import compute_grid_coordinates, compute_patch_footprint, load_manifest_shards
 
 DATASET = "camelyon16"
-MAX_GRID_ROUNDING_ERROR = 0.05
 MANIFEST_COLUMNS = ["patch_path", "parent_wsi", "x_level0", "y_level0", "patch_width"]
 
 
 def normalize_slide_name(name: str) -> str:
     """Map ``normal-001`` / ``normal_001.tif`` style names to ``normal_001``."""
     return Path(name).stem.replace("-", "_")
-
-
-def compute_patch_footprint(*, patch_size: int, slide_magnification: float, patch_magnification: float) -> float:
-    """Return the side of a patch in level-0 pixels."""
-    return patch_size * slide_magnification / patch_magnification
-
-
-def compute_grid_coordinates(*, level0_coords: np.ndarray, footprint: float) -> np.ndarray:
-    """Convert ``(N, 2)`` level-0 offsets of a contiguous patch grid to integer grid indices.
-
-    Raises:
-        ValueError: If offsets are not (close to) integer multiples of the footprint.
-    """
-    scaled = level0_coords / footprint
-    grid = np.rint(scaled).astype(np.int64)
-    error = float(np.abs(scaled - grid).max(initial=0.0))
-    if error > MAX_GRID_ROUNDING_ERROR:
-        raise ValueError(f"Patch offsets are off the grid by up to {error:.3f} patches")
-    return grid
 
 
 def compute_box_fractions(*, mask: np.ndarray, boxes: np.ndarray) -> np.ndarray:
@@ -163,10 +143,7 @@ def load_patch_manifest(pattern: str) -> pd.DataFrame:
     Raises:
         FileNotFoundError: If no shard matches.
     """
-    paths = sorted(glob.glob(pattern))
-    if not paths:
-        raise FileNotFoundError(f"No patch manifest matches {pattern}")
-    frame = pd.concat([pd.read_csv(path, usecols=MANIFEST_COLUMNS) for path in paths], ignore_index=True)
+    frame = load_manifest_shards(pattern, MANIFEST_COLUMNS)
     frame["slide"] = [normalize_slide_name(path) for path in frame["parent_wsi"]]
     return frame
 

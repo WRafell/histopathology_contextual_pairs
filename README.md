@@ -43,6 +43,18 @@ sbatch scripts/slurm/build_camelyon16_metadata.sh   # writes runs/metadata/camel
 
 Then pass `--set data.data_root=runs/metadata/camelyon16_20x_224` to SSL training.
 
+TCGA-NSCLC (LUAD vs. LUSC) uses primary-tumor diagnostic slides with the committed patient-level split
+`configs/splits/tcga_nsclc_split.csv` (made by `python -m src.make_tcga_nsclc_split`). On soda:
+
+```bash
+bash scripts/link_tcga_nsclc_images.sh               # links the split slides into TCGA/NSCLC/images/
+sbatch scripts/slurm/patch_tcga_nsclc.sh             # 20x 224 px patches, same patcher as Camelyon16
+sbatch scripts/slurm/build_tcga_nsclc_metadata.sh    # writes runs/metadata/tcga_nsclc_20x_224/
+```
+
+Then pass `--set data.dataset=tcga_nsclc --set data.data_root=runs/metadata/tcga_nsclc_20x_224`. TCGA has no
+patch labels, so the linear probe does not apply.
+
 ## Workflow
 
 Every entry point takes `--config <yaml>`, a new `--output-dir` (an existing one is never
@@ -81,6 +93,7 @@ python -m src.linear_probe --config configs/linear_probe.yaml --output-dir runs/
 | --- | --- |
 | `src/config.py` | Typed frozen configurations, YAML loading, `--set` overrides |
 | `src/data.py` | Metadata loading, coordinates, anchor subsampling |
+| `src/patch_grid.py`, `src/build_*_metadata.py`, `src/make_tcga_nsclc_split.py` | Patch grids, dataset metadata builders, TCGA-NSCLC split |
 | `src/neighbors.py` | Chebyshev neighbor table and per-epoch contextual positive selection |
 | `src/transforms.py`, `src/datasets.py` | SSL views and image datasets |
 | `src/backbones.py`, `src/ssl_models.py`, `src/ssl_losses.py` | Encoders, SSL heads, pure loss functions |

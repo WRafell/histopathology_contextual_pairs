@@ -1,7 +1,15 @@
 import ast
 from pathlib import Path
 
-ENTRY_POINTS = ("train_ssl", "extract_embeddings", "train_mil", "linear_probe")
+ENTRY_POINTS = (
+    "train_ssl",
+    "extract_embeddings",
+    "train_mil",
+    "linear_probe",
+    "build_camelyon16_metadata",
+    "make_tcga_nsclc_split",
+    "build_tcga_nsclc_metadata",
+)
 
 
 def test_entry_points_have_main_guard() -> None:
