@@ -14,8 +14,8 @@ weights. Training runs in fp16 mixed precision on CUDA.
 ## Setup
 
 ```bash
-conda create -n contextual-pairs python=3.11 pip
-conda activate contextual-pairs
+conda create -n histo-positive-pairs python=3.11 pip
+conda activate histo-positive-pairs
 python -m pip install -r requirements.txt
 python -m pip install -e ".[dev]"   # pytest, ruff, pyrefly
 ```
